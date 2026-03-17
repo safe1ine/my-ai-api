@@ -32,7 +32,7 @@ services:
   nginx:
     image: ghcr.1ms.run/safe1ine/my-ai-api-nginx:latest
     ports:
-      - "127.0.0.1:80:80"
+      - "127.0.0.1:10086:80"
     depends_on:
       - app
     restart: unless-stopped

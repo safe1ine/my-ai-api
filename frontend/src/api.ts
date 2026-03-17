@@ -44,6 +44,7 @@ export const statsApi = {
 export interface LogItem {
   id: number
   provider_name: string | null
+  key_name: string | null
   model: string
   api_key_prefix: string
   input_tokens: number

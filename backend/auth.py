@@ -5,10 +5,10 @@ from database import get_db
 from models import ClientKey
 
 
-def verify_client_key(request: Request, db: Session = Depends(get_db)) -> str:
+def verify_client_key(request: Request, db: Session = Depends(get_db)) -> ClientKey:
     """
     从 Authorization: Bearer <key> 或 x-api-key: <key> 中提取并验证调用方 key。
-    返回 key 字符串（用于日志记录）。
+    返回 ClientKey 对象。
     """
     key = ""
     auth = request.headers.get("Authorization", "")
@@ -23,4 +23,4 @@ def verify_client_key(request: Request, db: Session = Depends(get_db)) -> str:
     record = db.query(ClientKey).filter(ClientKey.key == key, ClientKey.is_active == True).first()  # noqa: E712
     if not record:
         raise HTTPException(status_code=401, detail="无效或已禁用的 API Key")
-    return key
+    return record

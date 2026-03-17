@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 
 const navItems = [
   { to: '/stats', icon: 'bi-bar-chart-line', label: '统计' },
@@ -10,49 +10,66 @@ const navItems = [
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const location = useLocation()
+  
+  const isActive = (path: string) => {
+    if (path === '/stats') return location.pathname === '/stats'
+    return location.pathname.startsWith(path)
+  }
+
   return (
-    <div className="d-flex" style={{ minHeight: '100vh' }}>
+    <div style={{ display: 'flex', height: '100vh', background: '#f1f5f9', padding: 16, gap: 16, boxSizing: 'border-box' }}>
       {/* Sidebar */}
       <nav
-        className="d-flex flex-column p-0"
-        style={{ width: 220, background: '#1a1d23', flexShrink: 0 }}
+        style={{ 
+          width: 220, 
+          background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)', 
+          borderRadius: 16,
+          padding: '20px 12px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+          flexShrink: 0,
+          alignSelf: 'stretch',
+        }}
       >
         <div
-          className="px-4 py-3 fw-bold text-white"
-          style={{ fontSize: 16, borderBottom: '1px solid #2d3139', background: '#13151a' }}
+          className="px-3 py-3 fw-bold text-white"
+          style={{ fontSize: 16, borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: 8 }}
         >
-          <i className="bi bi-lightning-charge-fill text-warning me-2" />
+          <i className="bi bi-lightning-charge-fill me-2" style={{ color: '#60a5fa' }} />
           AI API 中转站
         </div>
-        <div className="py-2 flex-grow-1">
+        <div style={{ marginTop: 8 }}>
           {navItems.map(item => (
-            <NavLink
+            <Link
               key={item.to}
               to={item.to}
-              className={({ isActive }) =>
-                `d-flex align-items-center px-4 py-2 text-decoration-none gap-2 ${
-                  isActive
-                    ? 'text-white fw-semibold'
-                    : 'text-secondary'
-                }`
-              }
-              style={({ isActive }) => ({
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '12px 16px',
+                gap: 12,
                 fontSize: 14,
-                background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
-                borderLeft: isActive ? '3px solid #6ea8fe' : '3px solid transparent',
-                transition: 'all 0.15s',
-              })}
+                cursor: 'pointer',
+                color: isActive(item.to) ? '#fff' : 'rgba(255,255,255,0.5)',
+                background: isActive(item.to) ? 'rgba(96, 165, 250, 0.15)' : 'transparent',
+                borderRadius: 10,
+                textDecoration: 'none',
+                marginBottom: 4,
+                transition: 'all 0.2s ease',
+              }}
             >
-              <i className={`bi ${item.icon}`} style={{ fontSize: 15 }} />
+              <i className={`bi ${item.icon}`} style={{ fontSize: 16, color: isActive(item.to) ? '#60a5fa' : '#94a3b8' }} />
               {item.label}
-            </NavLink>
+            </Link>
           ))}
         </div>
       </nav>
 
-      {/* Main */}
-      <main className="flex-grow-1 p-4" style={{ background: '#f5f7fa', overflowY: 'auto' }}>
-        {children}
+      {/* Main Content */}
+      <main style={{ flex: 1, background: '#fff', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', overflow: 'auto' }}>
+        <div style={{ padding: 24 }}>
+          {children}
+        </div>
       </main>
     </div>
   )

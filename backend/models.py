@@ -44,6 +44,7 @@ class ApiLog(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     provider_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("providers.id"), nullable=True)
+    client_key_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("client_keys.id"), nullable=True)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     api_key_prefix: Mapped[str] = mapped_column(String(20), nullable=False, default="unknown")
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
@@ -59,3 +60,4 @@ class ApiLog(Base):
     first_token_latency_ms: Mapped[int] = mapped_column(Integer, default=0)
 
     provider: Mapped["Provider | None"] = relationship("Provider", back_populates="logs")
+    client_key: Mapped["ClientKey | None"] = relationship("ClientKey")

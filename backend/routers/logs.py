@@ -10,6 +10,7 @@ router = APIRouter()
 class LogOut(BaseModel):
     id: int
     provider_name: str | None
+    key_name: str | None
     model: str
     api_key_prefix: str
     input_tokens: int
@@ -51,6 +52,7 @@ def list_logs(
         LogOut(
             id=r.id,
             provider_name=r.provider.name if r.provider else None,
+            key_name=r.client_key.name if r.client_key else None,
             model=r.model,
             api_key_prefix=r.api_key_prefix,
             input_tokens=r.input_tokens,

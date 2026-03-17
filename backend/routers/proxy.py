@@ -51,6 +51,7 @@ def _pick_provider(db: Session, provider_type: ProviderType) -> Provider:
 def _log(
     db: Session,
     provider_id: int | None,
+    client_key_id: int | None,
     model: str,
     api_key_prefix: str,
     input_tokens: int,
@@ -65,6 +66,7 @@ def _log(
 ):
     log = ApiLog(
         provider_id=provider_id,
+        client_key_id=client_key_id,
         model=model,
         api_key_prefix=api_key_prefix,
         input_tokens=input_tokens,
@@ -88,6 +90,7 @@ async def chat_completions(
     body: ChatCompletionRequest,
     request: Request,
     db: Session = Depends(get_db),
+    client_key = Depends(verify_client_key),
 ):
     key_prefix = _get_key_prefix(request)
     client_ip = _get_client_ip(request)
@@ -131,7 +134,7 @@ async def chat_completions(
             finally:
                 total_time = int((time.monotonic() - start) * 1000)
                 _log(
-                    db, provider.id, model, key_prefix, 0, 0, LogStatus.success, total_time,
+                    db, provider.id, client_key.id, model, key_prefix, 0, 0, LogStatus.success, total_time,
                     request_summary=request_summary,
                     response_summary=response_summary,
                     client_ip=client_ip,
@@ -150,7 +153,7 @@ async def chat_completions(
         response_summary = extract_response_summary(response_content)
 
         _log(
-            db, provider.id, model, key_prefix, in_tok, out_tok, LogStatus.success, latency,
+            db, provider.id, client_key.id, model, key_prefix, in_tok, out_tok, LogStatus.success, latency,
             request_summary=request_summary,
             response_summary=response_summary,
             client_ip=client_ip,
@@ -160,7 +163,7 @@ async def chat_completions(
     except Exception as exc:
         latency = int((time.monotonic() - start) * 1000)
         _log(
-            db, provider.id, model, key_prefix, 0, 0, LogStatus.error, latency,
+            db, provider.id, client_key.id, model, key_prefix, 0, 0, LogStatus.error, latency,
             request_summary=request_summary,
             error_message=str(exc),
             client_ip=client_ip,
@@ -174,6 +177,7 @@ async def messages(
     body: AnthropicMessageRequest,
     request: Request,
     db: Session = Depends(get_db),
+    client_key = Depends(verify_client_key),
 ):
     key_prefix = _get_key_prefix(request)
     client_ip = _get_client_ip(request)
@@ -222,7 +226,7 @@ async def messages(
             finally:
                 total_time = int((time.monotonic() - start) * 1000)
                 _log(
-                    db, provider.id, body.model, key_prefix, input_tokens, output_tokens, LogStatus.success, total_time,
+                    db, provider.id, client_key.id, body.model, key_prefix, input_tokens, output_tokens, LogStatus.success, total_time,
                     request_summary=request_summary,
                     response_summary=response_summary,
                     client_ip=client_ip,
@@ -247,7 +251,7 @@ async def messages(
             response_summary = None
 
         _log(
-            db, provider.id, body.model, key_prefix, in_tok, out_tok, LogStatus.success, latency,
+            db, provider.id, client_key.id, body.model, key_prefix, in_tok, out_tok, LogStatus.success, latency,
             request_summary=request_summary,
             response_summary=response_summary,
             client_ip=client_ip,
@@ -256,7 +260,7 @@ async def messages(
     except Exception as exc:
         latency = int((time.monotonic() - start) * 1000)
         _log(
-            db, provider.id, body.model, key_prefix, 0, 0, LogStatus.error, latency,
+            db, provider.id, client_key.id, body.model, key_prefix, 0, 0, LogStatus.error, latency,
             request_summary=request_summary,
             error_message=str(exc),
             client_ip=client_ip,

@@ -18,6 +18,11 @@ class LogOut(BaseModel):
     status: str
     latency_ms: int
     created_at: str
+    request_summary: str | None = None
+    response_summary: str | None = None
+    error_message: str | None = None
+    client_ip: str | None = None
+    first_token_latency_ms: int = 0
 
 
 class LogsResponse(BaseModel):
@@ -54,6 +59,11 @@ def list_logs(
             status=r.status,
             latency_ms=r.latency_ms,
             created_at=r.created_at.isoformat(),
+            request_summary=r.request_summary,
+            response_summary=r.response_summary,
+            error_message=r.error_message,
+            client_ip=r.client_ip,
+            first_token_latency_ms=r.first_token_latency_ms,
         )
         for r in rows
     ]

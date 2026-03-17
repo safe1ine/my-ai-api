@@ -52,6 +52,11 @@ export interface LogItem {
   status: 'success' | 'error'
   latency_ms: number
   created_at: string
+  request_summary: string | null
+  response_summary: string | null
+  error_message: string | null
+  client_ip: string | null
+  first_token_latency_ms: number
 }
 
 export interface LogsResponse {

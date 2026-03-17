@@ -9,6 +9,7 @@ export default function LogsPage() {
   const [modelFilter, setModelFilter] = useState('')
   const [modelInput, setModelInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
   const pageSize = 20
 
   const load = (p = page, sf = statusFilter, mf = modelFilter) => {
@@ -39,7 +40,9 @@ export default function LogsPage() {
 
   const fmtDate = (iso: string) => {
     const d = new Date(iso)
-    return d.toLocaleString('zh-CN', { hour12: false })
+    const offset = 8 * 60
+    const local = new Date(d.getTime() + offset * 60000)
+    return local.toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
   }
 
   return (
@@ -111,27 +114,75 @@ export default function LogsPage() {
                     <th>API Key</th>
                     <th className="text-end">Input</th>
                     <th className="text-end">Output</th>
-                    <th className="text-end">Total</th>
                     <th className="text-end">耗时</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map(item => (
-                    <tr key={item.id}>
-                      <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(item.created_at)}</td>
-                      <td>
-                        <span className={`badge bg-${item.status === 'success' ? 'success' : 'danger'}`}>
-                          {item.status === 'success' ? '成功' : '失败'}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12 }}><code>{item.model}</code></td>
-                      <td style={{ fontSize: 12 }}>{item.provider_name ?? '-'}</td>
-                      <td style={{ fontSize: 12 }}><code>{item.api_key_prefix}</code></td>
-                      <td className="text-end" style={{ fontSize: 12 }}>{item.input_tokens.toLocaleString()}</td>
-                      <td className="text-end" style={{ fontSize: 12 }}>{item.output_tokens.toLocaleString()}</td>
-                      <td className="text-end" style={{ fontSize: 12 }}>{item.total_tokens.toLocaleString()}</td>
-                      <td className="text-end" style={{ fontSize: 12 }}>{item.latency_ms} ms</td>
-                    </tr>
+                    <>
+                      <tr
+                        key={item.id}
+                        onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(item.created_at)}</td>
+                        <td>
+                          <span className={`badge bg-${item.status === 'success' ? 'success' : 'danger'}`}>
+                            {item.status === 'success' ? '成功' : '失败'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: 12 }}><code>{item.model}</code></td>
+                        <td style={{ fontSize: 12 }}>{item.provider_name ?? '-'}</td>
+                        <td style={{ fontSize: 12 }}><code>{item.api_key_prefix}</code></td>
+                        <td className="text-end" style={{ fontSize: 12 }}>{item.input_tokens.toLocaleString()}</td>
+                        <td className="text-end" style={{ fontSize: 12 }}>{item.output_tokens.toLocaleString()}</td>
+                        <td className="text-end" style={{ fontSize: 12 }}>{item.latency_ms} ms</td>
+                      </tr>
+                      {expandedId === item.id && (
+                        <tr>
+                          <td colSpan={8} className="bg-light p-3">
+                            <div className="row g-3">
+                              {item.client_ip && (
+                                <div className="col-md-6">
+                                  <small className="text-muted">客户端IP</small>
+                                  <div><code>{item.client_ip}</code></div>
+                                </div>
+                              )}
+                              {item.first_token_latency_ms > 0 && (
+                                <div className="col-md-6">
+                                  <small className="text-muted">首token耗时</small>
+                                  <div>{item.first_token_latency_ms} ms</div>
+                                </div>
+                              )}
+                              {item.request_summary && (
+                                <div className="col-12">
+                                  <small className="text-muted">请求摘要</small>
+                                  <div className="bg-white p-2 rounded small" style={{ maxHeight: 100, overflow: 'auto' }}>
+                                    {item.request_summary}
+                                  </div>
+                                </div>
+                              )}
+                              {item.response_summary && (
+                                <div className="col-12">
+                                  <small className="text-muted">响应摘要</small>
+                                  <div className="bg-white p-2 rounded small" style={{ maxHeight: 100, overflow: 'auto' }}>
+                                    {item.response_summary}
+                                  </div>
+                                </div>
+                              )}
+                              {item.error_message && (
+                                <div className="col-12">
+                                  <small className="text-muted">错误信息</small>
+                                  <div className="bg-danger bg-opacity-10 p-2 rounded small text-danger">
+                                    {item.error_message}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>

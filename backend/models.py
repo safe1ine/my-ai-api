@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import Integer, String, Boolean, DateTime, ForeignKey, Enum as SAEnum, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 import enum
@@ -52,5 +52,10 @@ class ApiLog(Base):
     status: Mapped[LogStatus] = mapped_column(SAEnum(LogStatus), default=LogStatus.success)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    request_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    client_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    first_token_latency_ms: Mapped[int] = mapped_column(Integer, default=0)
 
     provider: Mapped["Provider | None"] = relationship("Provider", back_populates="logs")

@@ -12,7 +12,6 @@ class LogOut(BaseModel):
     provider_name: str | None
     key_name: str | None
     model: str
-    api_key_prefix: str
     input_tokens: int
     output_tokens: int
     total_tokens: int
@@ -20,6 +19,7 @@ class LogOut(BaseModel):
     latency_ms: int
     created_at: str
     request_summary: str | None = None
+    system_prompt: str | None = None
     response_summary: str | None = None
     error_message: str | None = None
     client_ip: str | None = None
@@ -54,7 +54,6 @@ def list_logs(
             provider_name=r.provider.name if r.provider else None,
             key_name=r.client_key.name if r.client_key else None,
             model=r.model,
-            api_key_prefix=r.api_key_prefix,
             input_tokens=r.input_tokens,
             output_tokens=r.output_tokens,
             total_tokens=r.total_tokens,
@@ -62,6 +61,7 @@ def list_logs(
             latency_ms=r.latency_ms,
             created_at=r.created_at.isoformat(),
             request_summary=r.request_summary,
+            system_prompt=r.system_prompt,
             response_summary=r.response_summary,
             error_message=r.error_message,
             client_ip=r.client_ip,

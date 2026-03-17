@@ -18,15 +18,6 @@ from utils.sanitizer import extract_prompt_summary, extract_response_summary
 router = APIRouter(tags=["proxy"], dependencies=[Depends(verify_client_key)])
 
 
-def _get_key_prefix(request: Request) -> str:
-    auth = request.headers.get("Authorization", "")
-    if auth:
-        key = auth.removeprefix("Bearer ").strip()
-    else:
-        key = request.headers.get("x-api-key", "")
-    return key[:12] + "****" if len(key) >= 12 else (key[:4] + "****" if key else "unknown")
-
-
 def _get_client_ip(request: Request) -> str | None:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
@@ -53,12 +44,13 @@ def _log(
     provider_id: int | None,
     client_key_id: int | None,
     model: str,
-    api_key_prefix: str,
+    api_key_name: str,
     input_tokens: int,
     output_tokens: int,
     status: LogStatus,
     latency_ms: int,
     request_summary: str | None = None,
+    system_prompt: str | None = None,
     response_summary: str | None = None,
     error_message: str | None = None,
     client_ip: str | None = None,
@@ -68,13 +60,14 @@ def _log(
         provider_id=provider_id,
         client_key_id=client_key_id,
         model=model,
-        api_key_prefix=api_key_prefix,
+        api_key_name=api_key_name,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         total_tokens=input_tokens + output_tokens,
         status=status,
         latency_ms=latency_ms,
         request_summary=request_summary,
+        system_prompt=system_prompt,
         response_summary=response_summary,
         error_message=error_message,
         client_ip=client_ip,
@@ -92,13 +85,13 @@ async def chat_completions(
     db: Session = Depends(get_db),
     client_key = Depends(verify_client_key),
 ):
-    key_prefix = _get_key_prefix(request)
     client_ip = _get_client_ip(request)
+    key_name = client_key.name
     model = body.model
     messages = body.messages
     system = getattr(body, "system", None)
     
-    request_summary = extract_prompt_summary(messages, system) if messages or system else None
+    system_prompt, request_summary = extract_prompt_summary(messages, system) if messages or system else (None, None)
     provider = _pick_provider(db, ProviderType.openai)
     payload = body.model_dump(exclude_none=True)
 
@@ -134,8 +127,9 @@ async def chat_completions(
             finally:
                 total_time = int((time.monotonic() - start) * 1000)
                 _log(
-                    db, provider.id, client_key.id, model, key_prefix, 0, 0, LogStatus.success, total_time,
+                    db, provider.id, client_key.id, model, key_name, 0, 0, LogStatus.success, total_time,
                     request_summary=request_summary,
+                    system_prompt=system_prompt,
                     response_summary=response_summary,
                     client_ip=client_ip,
                     first_token_latency_ms=first_token_time or 0,
@@ -153,8 +147,9 @@ async def chat_completions(
         response_summary = extract_response_summary(response_content)
 
         _log(
-            db, provider.id, client_key.id, model, key_prefix, in_tok, out_tok, LogStatus.success, latency,
+            db, provider.id, client_key.id, model, key_name, in_tok, out_tok, LogStatus.success, latency,
             request_summary=request_summary,
+            system_prompt=system_prompt,
             response_summary=response_summary,
             client_ip=client_ip,
         )
@@ -163,8 +158,9 @@ async def chat_completions(
     except Exception as exc:
         latency = int((time.monotonic() - start) * 1000)
         _log(
-            db, provider.id, client_key.id, model, key_prefix, 0, 0, LogStatus.error, latency,
+            db, provider.id, client_key.id, model, key_name, 0, 0, LogStatus.error, latency,
             request_summary=request_summary,
+            system_prompt=system_prompt,
             error_message=str(exc),
             client_ip=client_ip,
         )
@@ -179,13 +175,12 @@ async def messages(
     db: Session = Depends(get_db),
     client_key = Depends(verify_client_key),
 ):
-    key_prefix = _get_key_prefix(request)
     client_ip = _get_client_ip(request)
+    key_name = client_key.name
     provider = _pick_provider(db, ProviderType.anthropic)
-    payload = body.model_dump(exclude_none=True)
 
     system = getattr(body, "system", None)
-    request_summary = extract_prompt_summary(body.messages, system) if body.messages or system else None
+    system_prompt, request_summary = extract_prompt_summary(body.messages, system) if body.messages or system else (None, None)
 
     if body.stream:
         start = time.monotonic()
@@ -197,7 +192,7 @@ async def messages(
             response_summary = None
             try:
                 async for chunk in anthropic_service.stream_messages(
-                    provider.api_key, provider.base_url, payload
+                    provider.api_key, provider.base_url, body.model_dump(exclude_none=True)
                 ):
                     if first_token_time is None:
                         first_token_time = int((time.monotonic() - start) * 1000)
@@ -226,8 +221,9 @@ async def messages(
             finally:
                 total_time = int((time.monotonic() - start) * 1000)
                 _log(
-                    db, provider.id, client_key.id, body.model, key_prefix, input_tokens, output_tokens, LogStatus.success, total_time,
+                    db, provider.id, client_key.id, body.model, key_name, input_tokens, output_tokens, LogStatus.success, total_time,
                     request_summary=request_summary,
+                    system_prompt=system_prompt,
                     response_summary=response_summary,
                     client_ip=client_ip,
                     first_token_latency_ms=first_token_time or 0,
@@ -238,7 +234,7 @@ async def messages(
     start = time.monotonic()
     try:
         data, in_tok, out_tok, latency = await anthropic_service.call_messages(
-            provider.api_key, provider.base_url, payload
+            provider.api_key, provider.base_url, body.model_dump(exclude_none=True)
         )
         response_content = data.get("content", [])
         if isinstance(response_content, list):
@@ -251,8 +247,9 @@ async def messages(
             response_summary = None
 
         _log(
-            db, provider.id, client_key.id, body.model, key_prefix, in_tok, out_tok, LogStatus.success, latency,
+            db, provider.id, client_key.id, body.model, key_name, in_tok, out_tok, LogStatus.success, latency,
             request_summary=request_summary,
+            system_prompt=system_prompt,
             response_summary=response_summary,
             client_ip=client_ip,
         )
@@ -260,8 +257,9 @@ async def messages(
     except Exception as exc:
         latency = int((time.monotonic() - start) * 1000)
         _log(
-            db, provider.id, client_key.id, body.model, key_prefix, 0, 0, LogStatus.error, latency,
+            db, provider.id, client_key.id, body.model, key_name, 0, 0, LogStatus.error, latency,
             request_summary=request_summary,
+            system_prompt=system_prompt,
             error_message=str(exc),
             client_ip=client_ip,
         )

@@ -1,12 +1,15 @@
-def extract_prompt_summary(messages: list, system: str | None = None) -> str | None:
-    parts = []
-    if system:
-        parts.append(f"system: {system[:100]}")
-    if not messages:
-        return " | ".join(parts)[:500] if parts else None
+def extract_prompt_summary(messages: list, system: str | None = None) -> tuple[str | None, str | None]:
+    system_prompt = None
+    user_prompt = None
     
+    if system:
+        system_prompt = system[:200]
+    
+    if not messages:
+        return system_prompt, None
+    
+    user_parts = []
     for msg in messages:
-        # 处理 Pydantic 模型对象或 dict
         if hasattr(msg, 'model_dump'):
             msg_dict = msg.model_dump()
         elif hasattr(msg, 'dict'):
@@ -30,10 +33,12 @@ def extract_prompt_summary(messages: list, system: str | None = None) -> str | N
                 text = " ".join(text_parts)[:200]
             else:
                 text = str(content)[:200]
-            parts.append(f"{role}: {text}")
+            user_parts.append(f"{role}: {text}")
     
-    result = " | ".join(parts)
-    return result[:500] if result else None
+    if user_parts:
+        user_prompt = " | ".join(user_parts)[:500]
+    
+    return system_prompt, user_prompt
 
 
 def extract_response_summary(content: str | None) -> str | None:

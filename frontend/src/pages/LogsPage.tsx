@@ -95,10 +95,10 @@ export default function LogsPage() {
                 <th className="fw-semibold py-3" style={{ width: 70 }}>上游</th>
                 <th className="fw-semibold py-3" style={{ width: 80 }}>Key</th>
                 <th className="fw-semibold py-3" style={{ width: 100 }}>IP</th>
-                <th className="text-end fw-semibold py-3" style={{ width: 60 }}>Input</th>
-                <th className="text-end fw-semibold py-3" style={{ width: 60 }}>Output</th>
-                <th className="text-end fw-semibold py-3" style={{ width: 60 }}>首token</th>
-                <th className="text-end fw-semibold py-3" style={{ width: 60 }}>耗时</th>
+                <th className="text-end fw-semibold py-3" style={{ width: 70 }}>Input</th>
+                <th className="text-end fw-semibold py-3" style={{ width: 70 }}>Output</th>
+                <th className="text-end fw-semibold py-3" style={{ width: 90 }}>首token</th>
+                <th className="text-end fw-semibold py-3" style={{ width: 70 }}>耗时</th>
               </tr>
             </thead>
             <tbody>
@@ -127,7 +127,7 @@ export default function LogsPage() {
                       </td>
                       <td className="py-2" style={{ fontSize: 12 }}><code>{item.model}</code></td>
                       <td className="py-2" style={{ fontSize: 12 }}>{item.provider_name ?? '-'}</td>
-                      <td className="py-2" style={{ fontSize: 12 }}><span className="badge bg-secondary">{item.key_name ?? '-'}</span></td>
+                      <td className="py-2" style={{ fontSize: 12 }}>{item.key_name ?? '-'}</td>
                       <td className="py-2" style={{ fontSize: 12 }}><code>{item.client_ip ?? '-'}</code></td>
                       <td className="text-end py-2" style={{ fontSize: 12 }}>{item.input_tokens.toLocaleString()}</td>
                       <td className="text-end py-2" style={{ fontSize: 12 }}>{item.output_tokens.toLocaleString()}</td>
@@ -138,9 +138,17 @@ export default function LogsPage() {
                       <tr>
                         <td colSpan={10} className="p-3" style={{ background: '#f8fafc' }}>
                           <div className="row g-3">
+                            {item.system_prompt && (
+                              <div className="col-12">
+                                <span className="text-muted small d-block mb-1">系统提示词</span>
+                                <div className="bg-white p-2 rounded small" style={{ maxHeight: 80, overflow: 'auto', fontSize: 12 }}>
+                                  {item.system_prompt}
+                                </div>
+                              </div>
+                            )}
                             {item.request_summary && (
                               <div className="col-12">
-                                <span className="text-muted small d-block mb-1">请求摘要</span>
+                                <span className="text-muted small d-block mb-1">用户提示词</span>
                                 <div className="bg-white p-2 rounded small" style={{ maxHeight: 80, overflow: 'auto', fontSize: 12 }}>
                                   {item.request_summary}
                                 </div>

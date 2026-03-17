@@ -46,7 +46,6 @@ export interface LogItem {
   provider_name: string | null
   key_name: string | null
   model: string
-  api_key_prefix: string
   input_tokens: number
   output_tokens: number
   total_tokens: number
@@ -54,6 +53,7 @@ export interface LogItem {
   latency_ms: number
   created_at: string
   request_summary: string | null
+  system_prompt: string | null
   response_summary: string | null
   error_message: string | null
   client_ip: string | null

@@ -3,7 +3,11 @@ def extract_prompt_summary(messages: list, system: str | None = None) -> tuple[s
     user_prompt = None
     
     if system:
-        system_prompt = system[:200]
+        if isinstance(system, list):
+            parts = [b.get("text", "") for b in system if isinstance(b, dict) and b.get("type") == "text"]
+            system_prompt = " ".join(parts)[:200]
+        else:
+            system_prompt = system[:200]
     
     if not messages:
         return system_prompt, None

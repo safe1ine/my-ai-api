@@ -115,27 +115,35 @@ def anthropic_to_openai(data: dict, original_model: str) -> dict:
     }
 
 
-async def list_models(api_key: str, base_url: str | None) -> list[str]:
+async def list_models(api_key: str, base_url: str | None, proxy_url: str | None = None) -> list[str]:
     """返回该 Anthropic 上游支持的模型 ID 列表"""
     url = (base_url or ANTHROPIC_BASE_URL).rstrip("/") + "/v1/models"
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
         resp = await client.get(url, headers=_build_headers(api_key))
         resp.raise_for_status()
         data = resp.json()
     return sorted(m["id"] for m in data.get("data", []))
 
 
-async def test_connection(api_key: str, base_url: str | None) -> bool:
-    """测试 Anthropic API 连通性（发一个极小请求）"""
+async def test_connection(api_key: str, base_url: str | None, proxy_url: str | None = None) -> tuple[bool, str | None, int]:
+    """测试 Anthropic API 连通性，返回 (success, error_message, latency_ms)"""
     url = (base_url or ANTHROPIC_BASE_URL).rstrip("/") + "/v1/messages"
     payload = {
         "model": "claude-haiku-4-5-20251001",
         "messages": [{"role": "user", "content": "hi"}],
         "max_tokens": 1,
     }
+    start = time.monotonic()
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
             resp = await client.post(url, json=payload, headers=_build_headers(api_key))
-            return resp.status_code in (200, 400, 401, 429)  # 非网络层错误即视为可达
-    except Exception:
-        return False
+            latency_ms = int((time.monotonic() - start) * 1000)
+            if resp.status_code != 200:
+                return False, f"HTTP {resp.status_code}: {resp.text[:200]}", latency_ms
+            data = resp.json()
+            if not data.get("content"):
+                return False, "响应中没有 content 字段", latency_ms
+            return True, None, latency_ms
+    except Exception as e:
+        latency_ms = int((time.monotonic() - start) * 1000)
+        return False, str(e), latency_ms

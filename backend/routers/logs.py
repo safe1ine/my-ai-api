@@ -24,6 +24,9 @@ class LogOut(BaseModel):
     error_message: str | None = None
     client_ip: str | None = None
     first_token_latency_ms: int = 0
+    is_stream: bool = False
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
 
 
 class LogsResponse(BaseModel):
@@ -66,6 +69,9 @@ def list_logs(
             error_message=r.error_message,
             client_ip=r.client_ip,
             first_token_latency_ms=r.first_token_latency_ms,
+            is_stream=r.is_stream,
+            cache_read_tokens=r.cache_read_tokens,
+            cache_write_tokens=r.cache_write_tokens,
         )
         for r in rows
     ]

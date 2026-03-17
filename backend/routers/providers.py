@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
@@ -6,6 +7,23 @@ from schemas import ProviderCreate, ProviderDetail, ProviderOut, ProviderUpdate
 from services import openai_service, anthropic_service
 
 router = APIRouter()
+
+
+async def do_health_check(db: Session, provider: Provider) -> None:
+    """对单个供应商执行探活并将结果写入数据库"""
+    if provider.type == "openai":
+        ok, err, latency = await openai_service.test_connection(
+            provider.api_key, provider.base_url, provider.proxy_url
+        )
+    else:
+        ok, err, latency = await anthropic_service.test_connection(
+            provider.api_key, provider.base_url, provider.proxy_url
+        )
+    provider.last_check_at = datetime.utcnow()
+    provider.last_check_success = ok
+    provider.last_check_error = err
+    provider.last_check_latency_ms = latency
+    db.commit()
 
 
 @router.get("", response_model=list[ProviderOut])
@@ -36,7 +54,7 @@ def update_provider(provider_id: int, body: ProviderUpdate, db: Session = Depend
     provider = db.get(Provider, provider_id)
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
-    for field, value in body.model_dump(exclude_none=True).items():
+    for field, value in body.model_dump(exclude_unset=True).items():
         setattr(provider, field, value)
     db.commit()
     db.refresh(provider)
@@ -58,12 +76,14 @@ async def test_provider(provider_id: int, db: Session = Depends(get_db)):
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    if provider.type == "openai":
-        ok = await openai_service.test_connection(provider.api_key, provider.base_url)
-    else:
-        ok = await anthropic_service.test_connection(provider.api_key, provider.base_url)
+    await do_health_check(db, provider)
+    db.refresh(provider)
 
-    return {"success": ok, "message": "连接成功" if ok else "连接失败，请检查 API Key 和 Base URL"}
+    return {
+        "success": provider.last_check_success,
+        "message": "连接成功" if provider.last_check_success else (provider.last_check_error or "连接失败"),
+        "latency_ms": provider.last_check_latency_ms,
+    }
 
 
 @router.get("/{provider_id}/models")
@@ -73,9 +93,9 @@ async def list_provider_models(provider_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Provider not found")
     try:
         if provider.type == "openai":
-            models = await openai_service.list_models(provider.api_key, provider.base_url)
+            models = await openai_service.list_models(provider.api_key, provider.base_url, provider.proxy_url)
         else:
-            models = await anthropic_service.list_models(provider.api_key, provider.base_url)
+            models = await anthropic_service.list_models(provider.api_key, provider.base_url, provider.proxy_url)
         return {"models": models}
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

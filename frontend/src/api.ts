@@ -2,6 +2,42 @@ import axios from 'axios'
 
 const http = axios.create({ baseURL: '/api' })
 
+const TOKEN_KEY = 'admin_token'
+
+export const authStorage = {
+  get: () => localStorage.getItem(TOKEN_KEY),
+  set: (t: string) => localStorage.setItem(TOKEN_KEY, t),
+  clear: () => localStorage.removeItem(TOKEN_KEY),
+}
+
+// 请求拦截：自动附加 token
+http.interceptors.request.use(cfg => {
+  const token = authStorage.get()
+  if (token) cfg.headers.Authorization = `Bearer ${token}`
+  return cfg
+})
+
+// 响应拦截：401 清除 token 并跳转到登录页
+http.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401) {
+      authStorage.clear()
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(err)
+  }
+)
+
+export const authApi = {
+  login: (username: string, password: string) =>
+    http.post<{ token: string }>('/auth/login', { username, password }).then(r => r.data),
+  logout: () => http.post('/auth/logout'),
+  me: () => http.get<{ username: string }>('/auth/me').then(r => r.data),
+}
+
 // ---- Stats ----
 export interface StatsOverview {
   total_requests: number
@@ -10,6 +46,8 @@ export interface StatsOverview {
   total_input_tokens: number
   total_output_tokens: number
   total_tokens: number
+  total_cache_read_tokens: number
+  total_cache_write_tokens: number
 }
 
 export interface UsagePoint {
@@ -18,6 +56,9 @@ export interface UsagePoint {
   output_tokens: number
   total_tokens: number
   requests: number
+  success_requests: number
+  avg_latency_ms: number
+  avg_first_token_latency_ms: number
 }
 
 export interface ModelStat {
@@ -58,6 +99,9 @@ export interface LogItem {
   error_message: string | null
   client_ip: string | null
   first_token_latency_ms: number
+  is_stream: boolean
+  cache_read_tokens: number
+  cache_write_tokens: number
 }
 
 export interface LogsResponse {
@@ -77,8 +121,14 @@ export interface ProviderOut {
   type: 'openai' | 'anthropic'
   api_key_prefix: string
   base_url: string | null
+  proxy_url: string | null
   is_active: boolean
+  priority: number
   created_at: string
+  last_check_at: string | null
+  last_check_success: boolean | null
+  last_check_error: string | null
+  last_check_latency_ms: number | null
 }
 
 export interface ProviderCreate {
@@ -86,7 +136,9 @@ export interface ProviderCreate {
   type: 'openai' | 'anthropic'
   api_key: string
   base_url?: string
+  proxy_url?: string
   is_active?: boolean
+  priority?: number
 }
 
 export interface ProviderUpdate {
@@ -94,16 +146,22 @@ export interface ProviderUpdate {
   type?: 'openai' | 'anthropic'
   api_key?: string
   base_url?: string
+  proxy_url?: string
   is_active?: boolean
+  priority?: number
+}
+
+export interface ProviderDetail extends ProviderOut {
+  api_key: string
 }
 
 export const providersApi = {
   list: () => http.get<ProviderOut[]>('/providers').then(r => r.data),
-  get: (id: number) => http.get<ProviderOut>(`/providers/${id}`).then(r => r.data),
+  get: (id: number) => http.get<ProviderDetail>(`/providers/${id}`).then(r => r.data),
   create: (body: ProviderCreate) => http.post<ProviderOut>('/providers', body).then(r => r.data),
   update: (id: number, body: ProviderUpdate) => http.put<ProviderOut>(`/providers/${id}`, body).then(r => r.data),
   delete: (id: number) => http.delete(`/providers/${id}`),
-  test: (id: number) => http.post<{ success: boolean; message: string }>(`/providers/${id}/test`).then(r => r.data),
+  test: (id: number) => http.post<{ success: boolean; message: string; latency_ms: number }>(`/providers/${id}/test`).then(r => r.data),
   models: (id: number) => http.get<{ models: string[] }>(`/providers/${id}/models`).then(r => r.data),
 }
 

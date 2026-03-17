@@ -9,7 +9,9 @@ class ProviderBase(BaseModel):
     type: Literal["openai", "anthropic"]
     api_key: str
     base_url: str | None = None
+    proxy_url: str | None = None
     is_active: bool = True
+    priority: int = 5
 
 
 class ProviderCreate(ProviderBase):
@@ -21,7 +23,9 @@ class ProviderUpdate(BaseModel):
     type: Literal["openai", "anthropic"] | None = None
     api_key: str | None = None
     base_url: str | None = None
+    proxy_url: str | None = None
     is_active: bool | None = None
+    priority: int | None = None
 
 
 class ProviderOut(BaseModel):
@@ -32,8 +36,14 @@ class ProviderOut(BaseModel):
     type: str
     api_key_prefix: str = ""      # 脱敏后只显示前缀
     base_url: str | None
+    proxy_url: str | None
     is_active: bool
+    priority: int = 5
     created_at: datetime
+    last_check_at: datetime | None = None
+    last_check_success: bool | None = None
+    last_check_error: str | None = None
+    last_check_latency_ms: int | None = None
 
     @classmethod
     def from_orm_with_mask(cls, obj: Any) -> "ProviderOut":
@@ -45,8 +55,14 @@ class ProviderOut(BaseModel):
             type=obj.type,
             api_key_prefix=prefix,
             base_url=obj.base_url,
+            proxy_url=obj.proxy_url,
             is_active=obj.is_active,
+            priority=obj.priority if obj.priority is not None else 5,
             created_at=obj.created_at,
+            last_check_at=obj.last_check_at,
+            last_check_success=obj.last_check_success,
+            last_check_error=obj.last_check_error,
+            last_check_latency_ms=obj.last_check_latency_ms,
         )
 
 
@@ -59,7 +75,9 @@ class ProviderDetail(BaseModel):
     type: str
     api_key: str
     base_url: str | None
+    proxy_url: str | None
     is_active: bool
+    priority: int = 5
     created_at: datetime
 
 
@@ -71,6 +89,8 @@ class StatsOverview(BaseModel):
     total_tokens: int
     success_requests: int
     error_requests: int
+    total_cache_read_tokens: int
+    total_cache_write_tokens: int
 
 
 class UsagePoint(BaseModel):
@@ -79,6 +99,9 @@ class UsagePoint(BaseModel):
     output_tokens: int
     total_tokens: int
     requests: int
+    success_requests: int
+    avg_latency_ms: int = 0
+    avg_first_token_latency_ms: int = 0
 
 
 class ModelStat(BaseModel):

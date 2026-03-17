@@ -1,15 +1,17 @@
 """
-管理面板身份验证
+管理面板身份验证（JWT 版）
 - ADMIN_USERNAME：从环境变量读取，默认 admin
 - ADMIN_PASSWORD：从环境变量读取；未设置时每次启动自动生成随机密码并打印到日志
-- 登录后颁发随机 token，有效期 24 小时
-- token 存内存；服务重启后需重新登录
+- JWT_SECRET：签名密钥，未设置时从 ADMIN_PASSWORD 派生（重启后仍有效）
+- 登录后颁发 JWT，有效期 30 天
 """
+import hashlib
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
+import jwt
 from fastapi import HTTPException, Request
 
 logger = logging.getLogger("auth_admin")
@@ -28,30 +30,34 @@ else:
     logger.info("  服务重启后密码将重新生成")
     logger.info("=" * 52)
 
-TOKEN_TTL = timedelta(hours=24)
-
-# token → 过期时间
-_tokens: dict[str, datetime] = {}
+# 签名密钥：优先读环境变量，否则从密码派生（稳定，重启不失效）
+_env_secret = os.environ.get("JWT_SECRET")
+JWT_SECRET = _env_secret if _env_secret else hashlib.sha256(f"ai-api:{ADMIN_PASSWORD}".encode()).hexdigest()
+JWT_ALGORITHM = "HS256"
+TOKEN_TTL = timedelta(days=30)
 
 
 def create_token() -> str:
-    token = secrets.token_urlsafe(32)
-    _tokens[token] = datetime.utcnow() + TOKEN_TTL
-    return token
+    payload = {
+        "sub": ADMIN_USERNAME,
+        "exp": datetime.now(tz=timezone.utc) + TOKEN_TTL,
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
 def revoke_token(token: str) -> None:
-    _tokens.pop(token, None)
+    # JWT 无需服务端撤销，客户端删除 token 即可
+    pass
 
 
 def _verify(token: str) -> bool:
-    expiry = _tokens.get(token)
-    if not expiry:
+    try:
+        jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return True
+    except jwt.ExpiredSignatureError:
         return False
-    if datetime.utcnow() > expiry:
-        _tokens.pop(token, None)
+    except jwt.InvalidTokenError:
         return False
-    return True
 
 
 def get_admin_token(request: Request) -> str:

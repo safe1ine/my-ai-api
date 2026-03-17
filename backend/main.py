@@ -27,6 +27,12 @@ _migrations = [
     "ALTER TABLE providers ADD COLUMN IF NOT EXISTS last_check_error TEXT",
     "ALTER TABLE providers ADD COLUMN IF NOT EXISTS last_check_latency_ms INTEGER",
     "ALTER TABLE providers ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 5",
+    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS first_token_latency_ms INTEGER DEFAULT 0",
+    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS is_stream BOOLEAN DEFAULT FALSE",
+    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS cache_read_tokens INTEGER DEFAULT 0",
+    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS cache_write_tokens INTEGER DEFAULT 0",
+    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS key_name VARCHAR(100) NOT NULL DEFAULT 'unknown'",
+    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS client_ip VARCHAR(45)",
 ]
 with engine.connect() as _conn:
     for _sql in _migrations:

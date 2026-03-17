@@ -1,7 +1,7 @@
 """
 代理转发路由
-- POST /v1/chat/completions  OpenAI 兼容接口
-- POST /v1/messages          Anthropic 兼容接口
+- POST /api/openai/chat/completions  OpenAI 兼容接口
+- POST /api/anthropic/messages      Anthropic 兼容接口
 """
 import time
 import json
@@ -83,7 +83,7 @@ def _log(
 
 
 # ── OpenAI 兼容接口 ─────────────────────────────────────────────────────
-@router.post("/v1/chat/completions")
+@router.post("/api/openai/chat/completions")
 async def chat_completions(
     body: ChatCompletionRequest,
     request: Request,
@@ -96,115 +96,55 @@ async def chat_completions(
     system = getattr(body, "system", None)
     
     request_summary = extract_prompt_summary(messages, system) if messages or system else None
-    
-    is_anthropic_model = model.startswith("claude")
-    provider_type = ProviderType.anthropic if is_anthropic_model else ProviderType.openai
-    provider = _pick_provider(db, provider_type)
-
+    provider = _pick_provider(db, ProviderType.openai)
     payload = body.model_dump(exclude_none=True)
 
     if body.stream:
-        if is_anthropic_model:
-            anthropic_payload = await anthropic_service.openai_to_anthropic(payload)
+        async def openai_stream():
+            first_token_time = None
+            start = time.monotonic()
+            response_summary = None
+            try:
+                async for chunk in openai_service.stream_chat_completions(
+                    provider.api_key, provider.base_url, payload
+                ):
+                    if first_token_time is None:
+                        first_token_time = int((time.monotonic() - start) * 1000)
+                    chunk_str = chunk.decode() if isinstance(chunk, bytes) else chunk
+                    
+                    for line in chunk_str.split("\n"):
+                        if line.startswith("data: "):
+                            try:
+                                data = json.loads(line[6:])
+                                if data.get("choices"):
+                                    delta = data["choices"][0].get("delta", {})
+                                    if delta.get("content"):
+                                        text = delta["content"]
+                                        if response_summary is None:
+                                            response_summary = text[:300]
+                                        else:
+                                            response_summary += text[:300]
+                            except:
+                                pass
+                    
+                    yield chunk
+            finally:
+                total_time = int((time.monotonic() - start) * 1000)
+                _log(
+                    db, provider.id, model, key_prefix, 0, 0, LogStatus.success, total_time,
+                    request_summary=request_summary,
+                    response_summary=response_summary,
+                    client_ip=client_ip,
+                    first_token_latency_ms=first_token_time or 0,
+                )
 
-            async def anthropic_stream():
-                first_token_time = None
-                start = time.monotonic()
-                input_tokens = 0
-                output_tokens = 0
-                response_summary = None
-                try:
-                    async for chunk in anthropic_service.stream_messages(
-                        provider.api_key, provider.base_url, anthropic_payload
-                    ):
-                        if first_token_time is None:
-                            first_token_time = int((time.monotonic() - start) * 1000)
-                        chunk_str = chunk.decode() if isinstance(chunk, bytes) else chunk
-                        
-                        for line in chunk_str.split("\n"):
-                            if line.startswith("data: "):
-                                try:
-                                    data = json.loads(line[6:])
-                                    if data.get("type") == "message_start":
-                                        input_tokens = data.get("message", {}).get("usage", {}).get("input_tokens", 0)
-                                    elif data.get("type") == "message_delta":
-                                        output_tokens = data.get("usage", {}).get("output_tokens", 0)
-                                    elif data.get("type") == "content_block_delta":
-                                        delta = data.get("delta", {})
-                                        if delta.get("type") == "text_delta":
-                                            text = delta.get("text", "")
-                                            if response_summary is None:
-                                                response_summary = text[:300]
-                                            else:
-                                                response_summary += text[:300]
-                                except:
-                                    pass
-                        
-                        yield chunk
-                finally:
-                    total_time = int((time.monotonic() - start) * 1000)
-                    _log(
-                        db, provider.id, model, key_prefix, input_tokens, output_tokens, LogStatus.success, total_time,
-                        request_summary=request_summary,
-                        response_summary=response_summary,
-                        client_ip=client_ip,
-                        first_token_latency_ms=first_token_time or 0,
-                    )
-
-            return StreamingResponse(anthropic_stream(), media_type="text/event-stream")
-        else:
-            async def openai_stream():
-                first_token_time = None
-                start = time.monotonic()
-                response_summary = None
-                try:
-                    async for chunk in openai_service.stream_chat_completions(
-                        provider.api_key, provider.base_url, payload
-                    ):
-                        if first_token_time is None:
-                            first_token_time = int((time.monotonic() - start) * 1000)
-                        chunk_str = chunk.decode() if isinstance(chunk, bytes) else chunk
-                        
-                        for line in chunk_str.split("\n"):
-                            if line.startswith("data: "):
-                                try:
-                                    data = json.loads(line[6:])
-                                    if data.get("choices"):
-                                        delta = data["choices"][0].get("delta", {})
-                                        if delta.get("content"):
-                                            text = delta["content"]
-                                            if response_summary is None:
-                                                response_summary = text[:300]
-                                            else:
-                                                response_summary += text[:300]
-                                except:
-                                    pass
-                        
-                        yield chunk
-                finally:
-                    total_time = int((time.monotonic() - start) * 1000)
-                    _log(
-                        db, provider.id, model, key_prefix, 0, 0, LogStatus.success, total_time,
-                        request_summary=request_summary,
-                        response_summary=response_summary,
-                        client_ip=client_ip,
-                        first_token_latency_ms=first_token_time or 0,
-                    )
-
-            return StreamingResponse(openai_stream(), media_type="text/event-stream")
+        return StreamingResponse(openai_stream(), media_type="text/event-stream")
 
     start = time.monotonic()
     try:
-        if is_anthropic_model:
-            anthropic_payload = await anthropic_service.openai_to_anthropic(payload)
-            data, in_tok, out_tok, latency = await anthropic_service.call_messages(
-                provider.api_key, provider.base_url, anthropic_payload
-            )
-            result = anthropic_service.anthropic_to_openai(data, model)
-        else:
-            result, in_tok, out_tok, latency = await openai_service.call_chat_completions(
-                provider.api_key, provider.base_url, payload
-            )
+        result, in_tok, out_tok, latency = await openai_service.call_chat_completions(
+            provider.api_key, provider.base_url, payload
+        )
 
         response_content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
         response_summary = extract_response_summary(response_content)
@@ -229,7 +169,7 @@ async def chat_completions(
 
 
 # ── Anthropic 兼容接口 ──────────────────────────────────────────────────
-@router.post("/v1/messages")
+@router.post("/api/anthropic/messages")
 async def messages(
     body: AnthropicMessageRequest,
     request: Request,

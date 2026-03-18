@@ -27,6 +27,16 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     restart: unless-stopped
 
+  health-checker:
+    image: ghcr.1ms.run/safe1ine/my-ai-api:latest
+    command: ["python", "health_checker.py"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ai_api
+    restart: unless-stopped
+
   nginx:
     image: ghcr.1ms.run/safe1ine/my-ai-api-nginx:latest
     ports:

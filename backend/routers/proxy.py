@@ -378,6 +378,11 @@ async def _proxy(request: Request, vendor: str, path: str,
                         await http_client.aclose()
                         if do_log:
                             logger.warning("[stream] collected %d chunks, total %d bytes", len(collected), sum(len(c) for c in collected))
+                            
+                            # 打印完整响应内容
+                            full_response = b"".join(collected).decode("utf-8", errors="replace")
+                            logger.warning("[stream] FULL RESPONSE:\n%s", full_response)
+                            
                             total_ms = int((time.monotonic() - start) * 1000)
                             parser = (_parse_openai_stream_log if vendor == "openai"
                                       else _parse_anthropic_stream_log)
@@ -447,6 +452,11 @@ async def _proxy(request: Request, vendor: str, path: str,
 
                 # 成功：记录日志并返回
                 if do_log:
+                    # 打印完整响应内容
+                    logger.warning("[non-stream] FULL RESPONSE (status=%d):\n%s", 
+                                 resp.status_code, 
+                                 resp.content.decode("utf-8", errors="replace"))
+                    
                     in_tok = out_tok = cache_read = cache_write = 0
                     response_summary = None
                     error_msg = None

@@ -1,7 +1,5 @@
-import asyncio
 import logging
 import os
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -68,34 +66,7 @@ with engine.connect() as _conn:
     _conn.commit()
 
 
-async def _health_check_loop():
-    """每 5 分钟对所有启用的上游做一次探活"""
-    from models import Provider
-    from routers.providers import do_health_check
-    while True:
-        await asyncio.sleep(300)
-        db = SessionLocal()
-        try:
-            active_providers = db.query(Provider).filter(Provider.is_active == True).all()  # noqa: E712
-            for p in active_providers:
-                try:
-                    await do_health_check(db, p)
-                    logger.info("[health] provider=%s success=%s latency=%sms",
-                                p.name, p.last_check_success, p.last_check_latency_ms)
-                except Exception as e:
-                    logger.warning("[health] provider=%s error: %s", p.name, e)
-        finally:
-            db.close()
-
-
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    task = asyncio.create_task(_health_check_loop())
-    yield
-    task.cancel()
-
-
-app = FastAPI(title="AI API 中转站", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="AI API 中转站", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

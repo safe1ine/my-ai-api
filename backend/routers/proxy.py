@@ -170,10 +170,12 @@ def _parse_anthropic_stream_log(chunks: list[bytes]) -> dict:
                     c = delta.get("thinking", "")
                     if c:
                         thinking_parts.append(c)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("[parse] failed to parse line: %s, error: %s", line[:100], e)
     # 优先使用文本响应，如果没有则使用 thinking 内容
     content = "".join(response_parts) or "".join(thinking_parts)
+    logger.warning("[parse] response_parts=%d thinking_parts=%d content_len=%d", 
+                   len(response_parts), len(thinking_parts), len(content))
     return {
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
@@ -254,6 +256,9 @@ async def _proxy(request: Request, vendor: str, path: str,
     params = dict(request.query_params)
     do_log = _should_log(vendor, path)
     client_ip = _client_ip(request)
+    
+    logger.warning("[proxy] vendor=%s path=%s normalized_path=%s do_log=%s", 
+                   vendor, path, _normalize_path(path), do_log)
 
     # 解析请求摘要（仅日志路径，只做一次）
     req_body_json: dict = {}

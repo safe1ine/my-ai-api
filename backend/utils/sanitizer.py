@@ -5,9 +5,9 @@ def extract_prompt_summary(messages: list, system: str | None = None) -> tuple[s
     if system:
         if isinstance(system, list):
             parts = [b.get("text", "") for b in system if isinstance(b, dict) and b.get("type") == "text"]
-            system_prompt = " ".join(parts)[:200]
+            system_prompt = " ".join(parts)[:2048]
         else:
-            system_prompt = system[:200]
+            system_prompt = system[:2048]
     
     if not messages:
         return system_prompt, None
@@ -28,19 +28,19 @@ def extract_prompt_summary(messages: list, system: str | None = None) -> tuple[s
         
         if content:
             if isinstance(content, str):
-                text = content[:200]
+                text = content[:2048]
             elif isinstance(content, list):
                 text_parts = []
                 for item in content:
                     if isinstance(item, dict) and item.get("type") == "text":
-                        text_parts.append(item.get("text", "")[:100])
-                text = " ".join(text_parts)[:200]
+                        text_parts.append(item.get("text", "")[:2048])
+                text = " ".join(text_parts)[:2048]
             else:
-                text = str(content)[:200]
+                text = str(content)[:2048]
             user_parts.append(f"{role}: {text}")
     
     if user_parts:
-        user_prompt = " | ".join(user_parts)[:500]
+        user_prompt = " | ".join(user_parts)[:2048]
     
     return system_prompt, user_prompt
 
@@ -49,8 +49,8 @@ def extract_response_summary(content: str | None) -> str | None:
     if not content:
         return None
     if isinstance(content, str):
-        text = content[:300]
-        if len(content) > 300:
+        text = content[:2048]
+        if len(content) > 2048:
             text += "..."
         return text
-    return str(content)[:300]
+    return str(content)[:2048]

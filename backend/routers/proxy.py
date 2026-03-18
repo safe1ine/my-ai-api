@@ -112,13 +112,15 @@ def _parse_openai_stream_log(chunks: list[bytes]) -> dict:
     input_tokens = output_tokens = cache_read = cache_write = 0
     response_parts: list[str] = []
     for line in text.splitlines():
-        if not line.startswith("data: "):
+        # SSE 格式：data: 或 data:（可能没有空格）
+        if not line.startswith("data:"):
             continue
-        raw = line[6:]
-        if raw.strip() == "[DONE]":
+        # 移除 "data:" 或 "data: " 前缀
+        json_str = line[5:].lstrip()
+        if json_str.strip() == "[DONE]":
             continue
         try:
-            d = json.loads(raw)
+            d = json.loads(json_str)
             if d.get("usage"):
                 u = d["usage"]
                 input_tokens = u.get("prompt_tokens", 0)
@@ -147,10 +149,13 @@ def _parse_anthropic_stream_log(chunks: list[bytes]) -> dict:
     response_parts: list[str] = []
     thinking_parts: list[str] = []
     for line in text.splitlines():
-        if not line.startswith("data: "):
+        # SSE 格式：data: 或 data:（可能没有空格）
+        if not line.startswith("data:"):
             continue
+        # 移除 "data:" 或 "data: " 前缀
+        json_str = line[5:].lstrip()
         try:
-            d = json.loads(line[6:])
+            d = json.loads(json_str)
             t = d.get("type")
             if t == "message_start":
                 u = d.get("message", {}).get("usage", {})

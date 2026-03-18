@@ -58,6 +58,7 @@ def get_usage(
     granularity: str = Query("day", pattern="^(day|week|month)$"),
     db: Session = Depends(get_db),
 ):
+    is_sqlite = engine.dialect.name == "sqlite"
     now = datetime.utcnow()
     if granularity == "day":
         start_dt = now - timedelta(hours=24)
@@ -88,8 +89,17 @@ def get_usage(
         .all()
     )
 
-    # 建立时间桶 → 数据 映射
-    data: dict[datetime, tuple] = {r.bucket: r for r in rows}
+    # 统一 bucket 为字符串 key（SQLite 返回字符串，PostgreSQL 返回 datetime）
+    def to_bucket_key(dt):
+        if isinstance(dt, str):
+            return dt.replace(" ", "T")  # SQLite: "2026-03-17 23:25:00" -> "2026-03-17T23:25:00"
+        return dt.strftime("%Y-%m-%dT%H:%M:%S")  # PostgreSQL datetime
+    
+    data: dict[str, tuple] = {to_bucket_key(r.bucket): r for r in rows}
+
+    # 生成时间桶游标（用字符串格式）
+    def format_bucket(dt: datetime) -> str:
+        return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
     # 对齐起始桶边界
     if bucket_minutes < 60:
@@ -107,9 +117,10 @@ def get_usage(
     result: list[UsagePoint] = []
     delta = timedelta(minutes=bucket_minutes)
     while cursor <= now:
-        r = data.get(cursor)
+        key = format_bucket(cursor)
+        r = data.get(key)
         result.append(UsagePoint(
-            date=cursor.isoformat(),
+            date=key,
             input_tokens=r.input_tokens or 0 if r else 0,
             output_tokens=r.output_tokens or 0 if r else 0,
             total_tokens=r.total_tokens or 0 if r else 0,

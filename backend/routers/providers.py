@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import datetime, date
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Provider
-from schemas import ProviderCreate, ProviderDetail, ProviderOut, ProviderUpdate
+from models import ApiLog, Provider
+from schemas import ProviderCreate, ProviderDetail, ProviderOut, ProviderTokenStats, ProviderUpdate
 from services import openai_service, anthropic_service
 
 router = APIRouter()
@@ -30,6 +31,53 @@ async def do_health_check(db: Session, provider: Provider) -> None:
 def list_providers(db: Session = Depends(get_db)):
     providers = db.query(Provider).order_by(Provider.created_at.desc()).all()
     return [ProviderOut.from_orm_with_mask(p) for p in providers]
+
+
+@router.get("/token-stats", response_model=list[ProviderTokenStats])
+def get_provider_token_stats(db: Session = Depends(get_db)):
+    """返回每个 provider 的历史总计和今日输入/输出 token"""
+    today_start = datetime.combine(date.today(), datetime.min.time())
+
+    # 历史总计
+    total_rows = (
+        db.query(
+            ApiLog.provider_id,
+            func.coalesce(func.sum(ApiLog.input_tokens + ApiLog.cache_read_tokens + ApiLog.cache_write_tokens), 0).label("total_input"),
+            func.coalesce(func.sum(ApiLog.output_tokens), 0).label("total_output"),
+        )
+        .filter(ApiLog.provider_id.isnot(None))
+        .group_by(ApiLog.provider_id)
+        .all()
+    )
+    total_map = {r.provider_id: (int(r.total_input), int(r.total_output)) for r in total_rows}
+
+    # 今日统计
+    today_rows = (
+        db.query(
+            ApiLog.provider_id,
+            func.coalesce(func.sum(ApiLog.input_tokens + ApiLog.cache_read_tokens + ApiLog.cache_write_tokens), 0).label("today_input"),
+            func.coalesce(func.sum(ApiLog.output_tokens), 0).label("today_output"),
+        )
+        .filter(ApiLog.provider_id.isnot(None), ApiLog.created_at >= today_start)
+        .group_by(ApiLog.provider_id)
+        .all()
+    )
+    today_map = {r.provider_id: (int(r.today_input), int(r.today_output)) for r in today_rows}
+
+    # 合并所有 provider
+    provider_ids = db.query(Provider.id).all()
+    result = []
+    for (pid,) in provider_ids:
+        ti, to = total_map.get(pid, (0, 0))
+        di, do_ = today_map.get(pid, (0, 0))
+        result.append(ProviderTokenStats(
+            provider_id=pid,
+            total_input_tokens=ti,
+            total_output_tokens=to,
+            today_input_tokens=di,
+            today_output_tokens=do_,
+        ))
+    return result
 
 
 @router.get("/{provider_id}", response_model=ProviderDetail)

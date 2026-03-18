@@ -155,6 +155,14 @@ export interface ProviderDetail extends ProviderOut {
   api_key: string
 }
 
+export interface ProviderTokenStats {
+  provider_id: number
+  total_input_tokens: number
+  total_output_tokens: number
+  today_input_tokens: number
+  today_output_tokens: number
+}
+
 export const providersApi = {
   list: () => http.get<ProviderOut[]>('/providers').then(r => r.data),
   get: (id: number) => http.get<ProviderDetail>(`/providers/${id}`).then(r => r.data),
@@ -163,6 +171,7 @@ export const providersApi = {
   delete: (id: number) => http.delete(`/providers/${id}`),
   test: (id: number) => http.post<{ success: boolean; message: string; latency_ms: number }>(`/providers/${id}/test`).then(r => r.data),
   models: (id: number) => http.get<{ models: string[] }>(`/providers/${id}/models`).then(r => r.data),
+  tokenStats: () => http.get<ProviderTokenStats[]>('/providers/token-stats').then(r => r.data),
 }
 
 // ---- Keys ----

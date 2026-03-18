@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { providersApi, ProviderOut, ProviderCreate } from '../api'
+import { providersApi, ProviderOut, ProviderCreate, ProviderTokenStats } from '../api'
 
 // id → 已解密的完整 key（用于行内展示）
 type RevealedKeys = Record<number, string | 'loading'>
 
 // ── 列定义 ──────────────────────────────────────────────────────────────────
 
-type ColKey = 'priority' | 'name' | 'type' | 'apiKey' | 'baseUrl' | 'proxy' | 'health' | 'status' | 'createdAt'
+type ColKey = 'priority' | 'name' | 'type' | 'apiKey' | 'baseUrl' | 'proxy' | 'health' | 'status' | 'createdAt' | 'tokenStats'
 
 interface ColDef { key: ColKey; label: string; defaultOn: boolean }
 
@@ -18,6 +18,7 @@ const COL_DEFS: ColDef[] = [
   { key: 'baseUrl',   label: 'Base URL', defaultOn: false },
   { key: 'proxy',     label: '代理',   defaultOn: false },
   { key: 'health',    label: '探活',   defaultOn: true  },
+  { key: 'tokenStats', label: 'Token 用量', defaultOn: true },
   { key: 'status',    label: '状态',   defaultOn: true  },
   { key: 'createdAt', label: '创建时间', defaultOn: true },
 ]
@@ -138,6 +139,13 @@ const emptyForm: ProviderCreate & { id?: number } = {
   priority: 5,
 }
 
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
+}
+
 const TYPE_CONFIG = {
   openai: { label: 'OpenAI', color: '#10a37f', bg: '#f0fdf8', icon: 'bi-stars' },
   anthropic: { label: 'Anthropic', color: '#d97706', bg: '#fffbeb', icon: 'bi-cpu' },
@@ -177,6 +185,7 @@ export default function ProvidersPage() {
   const [testing, setTesting] = useState<number | null>(null)
   const [revealedKeys, setRevealedKeys] = useState<RevealedKeys>({})
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(loadVisibleCols)
+  const [tokenStats, setTokenStats] = useState<Record<number, ProviderTokenStats>>({})
   const modalRef = useRef<HTMLDivElement>(null)
 
   const show = (k: ColKey) => visibleCols.has(k)
@@ -184,7 +193,15 @@ export default function ProvidersPage() {
 
   const load = () => {
     setLoading(true)
-    providersApi.list().then(setProviders).finally(() => setLoading(false))
+    Promise.all([
+      providersApi.list(),
+      providersApi.tokenStats(),
+    ]).then(([providerList, stats]) => {
+      setProviders(providerList)
+      const map: Record<number, ProviderTokenStats> = {}
+      for (const s of stats) map[s.provider_id] = s
+      setTokenStats(map)
+    }).finally(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [])
@@ -542,6 +559,38 @@ export default function ProvidersPage() {
                             <HealthBadge p={p} />
                           </td>
                         )}
+                        {show('tokenStats') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            {(() => {
+                              const s = tokenStats[p.id]
+                              if (!s || (s.total_input_tokens === 0 && s.total_output_tokens === 0)) {
+                                return <span style={{ fontSize: 12, color: '#9ca3af' }}>--</span>
+                              }
+                              return (
+                                <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <span style={{ color: '#6b7280' }}>总计</span>
+                                    <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.total_input_tokens.toLocaleString()}`}>
+                                      <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_input_tokens)}
+                                    </span>
+                                    <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.total_output_tokens.toLocaleString()}`}>
+                                      <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_output_tokens)}
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <span style={{ color: '#6b7280' }}>今日</span>
+                                    <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.today_input_tokens.toLocaleString()}`}>
+                                      <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_input_tokens)}
+                                    </span>
+                                    <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.today_output_tokens.toLocaleString()}`}>
+                                      <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_output_tokens)}
+                                    </span>
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                          </td>
+                        )}
                         {show('status') && (
                           <td style={{ padding: '14px 20px' }}>
                             <div
@@ -703,6 +752,38 @@ export default function ProvidersPage() {
                         {show('health') && (
                           <td style={{ padding: '14px 20px' }}>
                             <HealthBadge p={p} />
+                          </td>
+                        )}
+                        {show('tokenStats') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            {(() => {
+                              const s = tokenStats[p.id]
+                              if (!s || (s.total_input_tokens === 0 && s.total_output_tokens === 0)) {
+                                return <span style={{ fontSize: 12, color: '#9ca3af' }}>--</span>
+                              }
+                              return (
+                                <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <span style={{ color: '#6b7280' }}>总计</span>
+                                    <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.total_input_tokens.toLocaleString()}`}>
+                                      <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_input_tokens)}
+                                    </span>
+                                    <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.total_output_tokens.toLocaleString()}`}>
+                                      <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_output_tokens)}
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <span style={{ color: '#6b7280' }}>今日</span>
+                                    <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.today_input_tokens.toLocaleString()}`}>
+                                      <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_input_tokens)}
+                                    </span>
+                                    <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.today_output_tokens.toLocaleString()}`}>
+                                      <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_output_tokens)}
+                                    </span>
+                                  </div>
+                                </div>
+                              )
+                            })()}
                           </td>
                         )}
                         {show('status') && (

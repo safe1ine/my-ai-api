@@ -13,6 +13,10 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from fastapi import HTTPException, Request
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+load_dotenv()
 
 logger = logging.getLogger("auth_admin")
 

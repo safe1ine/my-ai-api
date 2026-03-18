@@ -19,24 +19,32 @@ logger = logging.getLogger("main")
 
 Base.metadata.create_all(bind=engine)
 
-# 兼容旧数据库：按需添加新列
+# 兼容旧数据库：按需添加新列 (SQLite 兼容版本)
 _migrations = [
-    "ALTER TABLE providers ADD COLUMN IF NOT EXISTS proxy_url VARCHAR(500)",
-    "ALTER TABLE providers ADD COLUMN IF NOT EXISTS last_check_at TIMESTAMP",
-    "ALTER TABLE providers ADD COLUMN IF NOT EXISTS last_check_success BOOLEAN",
-    "ALTER TABLE providers ADD COLUMN IF NOT EXISTS last_check_error TEXT",
-    "ALTER TABLE providers ADD COLUMN IF NOT EXISTS last_check_latency_ms INTEGER",
-    "ALTER TABLE providers ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 5",
-    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS first_token_latency_ms INTEGER DEFAULT 0",
-    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS is_stream BOOLEAN DEFAULT FALSE",
-    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS cache_read_tokens INTEGER DEFAULT 0",
-    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS cache_write_tokens INTEGER DEFAULT 0",
-    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS key_name VARCHAR(100) NOT NULL DEFAULT 'unknown'",
-    "ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS client_ip VARCHAR(45)",
+    ("providers", "proxy_url", "ALTER TABLE providers ADD COLUMN proxy_url VARCHAR(500)"),
+    ("providers", "last_check_at", "ALTER TABLE providers ADD COLUMN last_check_at TIMESTAMP"),
+    ("providers", "last_check_success", "ALTER TABLE providers ADD COLUMN last_check_success BOOLEAN"),
+    ("providers", "last_check_error", "ALTER TABLE providers ADD COLUMN last_check_error TEXT"),
+    ("providers", "last_check_latency_ms", "ALTER TABLE providers ADD COLUMN last_check_latency_ms INTEGER"),
+    ("providers", "priority", "ALTER TABLE providers ADD COLUMN priority INTEGER DEFAULT 5"),
+    ("api_logs", "first_token_latency_ms", "ALTER TABLE api_logs ADD COLUMN first_token_latency_ms INTEGER DEFAULT 0"),
+    ("api_logs", "is_stream", "ALTER TABLE api_logs ADD COLUMN is_stream BOOLEAN DEFAULT FALSE"),
+    ("api_logs", "cache_read_tokens", "ALTER TABLE api_logs ADD COLUMN cache_read_tokens INTEGER DEFAULT 0"),
+    ("api_logs", "cache_write_tokens", "ALTER TABLE api_logs ADD COLUMN cache_write_tokens INTEGER DEFAULT 0"),
+    ("api_logs", "key_name", "ALTER TABLE api_logs ADD COLUMN key_name VARCHAR(100) NOT NULL DEFAULT 'unknown'"),
+    ("api_logs", "client_ip", "ALTER TABLE api_logs ADD COLUMN client_ip VARCHAR(45)"),
 ]
 with engine.connect() as _conn:
-    for _sql in _migrations:
-        _conn.execute(text(_sql))
+    for table_name, column_name, _sql in _migrations:
+        try:
+            # 检查列是否已存在
+            result = _conn.execute(text(f"PRAGMA table_info({table_name})"))
+            columns = [row[1] for row in result]
+            if column_name not in columns:
+                _conn.execute(text(_sql))
+        except Exception:
+            # 表可能不存在，忽略错误
+            pass
     _conn.commit()
 
 

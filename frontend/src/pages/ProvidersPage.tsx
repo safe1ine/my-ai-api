@@ -398,14 +398,16 @@ export default function ProvidersPage() {
         </div>
       </div>
 
-      {/* List */}
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-        {loading ? (
+      {/* List - Grouped by Type */}
+      {loading ? (
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
           <div className="d-flex justify-content-center align-items-center p-5">
             <div className="spinner-border me-3" style={{ width: 20, height: 20, borderWidth: 2, color: '#6366f1' }} />
             <span className="text-muted" style={{ fontSize: 14 }}>加载中...</span>
           </div>
-        ) : providers.length === 0 ? (
+        </div>
+      ) : providers.length === 0 ? (
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
           <div className="text-center p-5">
             <i className="bi bi-cloud-slash" style={{ fontSize: 40, color: '#d1d5db', display: 'block', marginBottom: 12 }} />
             <div className="text-muted" style={{ fontSize: 14 }}>还没有上游配置</div>
@@ -417,149 +419,336 @@ export default function ProvidersPage() {
               <i className="bi bi-plus-lg me-1" />立即添加
             </button>
           </div>
-        ) : (
-          <table className="table table-hover mb-0 align-middle">
-            <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              <tr>
-                {COL_DEFS.filter(c => visibleCols.has(c.key)).map(c => (
-                  <th key={c.key} style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>{c.label}</th>
-                ))}
-                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {providers.map(p => {
-                const tc = TYPE_CONFIG[p.type]
-                return (
-                  <tr key={p.id} style={{ borderTop: '1px solid #f3f4f6' }}>
-                    {show('priority') && (
-                      <td style={{ padding: '14px 20px', textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          width: 26, height: 26, borderRadius: 8,
-                          background: '#f3f4f6', color: '#374151',
-                          fontSize: 13, fontWeight: 700,
-                        }}>
-                          {p.priority ?? 5}
-                        </span>
-                      </td>
-                    )}
-                    {show('name') && (
-                      <td style={{ padding: '14px 20px' }}>
-                        <span className="fw-semibold" style={{ fontSize: 14 }}>{p.name}</span>
-                      </td>
-                    )}
-                    {show('type') && (
-                      <td style={{ padding: '14px 20px' }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          background: tc.bg, color: tc.color,
-                          borderRadius: 6, padding: '3px 10px', fontSize: 12, fontWeight: 500,
-                        }}>
-                          <i className={`bi ${tc.icon}`} style={{ fontSize: 11 }} />
-                          {tc.label}
-                        </span>
-                      </td>
-                    )}
-                    {show('apiKey') && (
-                      <td style={{ padding: '14px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <code style={{
-                            fontSize: 12, background: '#f3f4f6', color: '#374151',
-                            padding: '3px 8px', borderRadius: 6, fontFamily: 'monospace',
-                            maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>
-                            {revealedKeys[p.id] === 'loading'
-                              ? '加载中...'
-                              : revealedKeys[p.id]
-                                ? revealedKeys[p.id]
-                                : `${p.api_key_prefix}···`}
-                          </code>
-                          <button
-                            title={revealedKeys[p.id] ? '隐藏' : '查看完整 Key'}
-                            onClick={() => handleRevealKey(p)}
-                            style={{
-                              border: 'none', background: 'none', padding: '2px 4px',
-                              cursor: 'pointer', color: '#9ca3af', fontSize: 13, lineHeight: 1, flexShrink: 0,
-                            }}
-                          >
-                            <i className={`bi ${revealedKeys[p.id] && revealedKeys[p.id] !== 'loading' ? 'bi-eye-slash' : 'bi-eye'}`} />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                    {show('baseUrl') && (
-                      <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 200 }}>
-                        {p.base_url
-                          ? <span style={{ wordBreak: 'break-all' }}>{p.base_url}</span>
-                          : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>默认</span>
-                        }
-                      </td>
-                    )}
-                    {show('proxy') && (
-                      <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 180 }}>
-                        {p.proxy_url
-                          ? (
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* OpenAI Group */}
+          {(() => {
+            const openaiProviders = providers
+              .filter(p => p.type === 'openai')
+              .sort((a, b) => (a.priority ?? 5) - (b.priority ?? 5))
+            const tc = TYPE_CONFIG.openai
+            if (openaiProviders.length === 0) return null
+            return (
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ 
+                  background: 'linear-gradient(135deg, #f0fdf8 0%, #ecfdf5 100%)',
+                  padding: '14px 20px',
+                  borderBottom: '1px solid #d1fae5',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      background: tc.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <i className={`bi ${tc.icon}`} style={{ color: '#fff', fontSize: 15 }} />
+                    </div>
+                    <div>
+                      <h5 className="mb-0 fw-bold" style={{ fontSize: 15, color: '#065f46' }}>{tc.label}</h5>
+                      <p className="mb-0 text-muted" style={{ fontSize: 12 }}>OpenAI 及兼容接口供应商</p>
+                    </div>
+                  </div>
+                  <span className="badge rounded-pill" style={{ background: tc.color, color: '#fff', fontSize: 12, padding: '5px 12px' }}>
+                    {openaiProviders.length} 个
+                  </span>
+                </div>
+                <table className="table table-hover mb-0 align-middle">
+                  <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                    <tr>
+                      {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
+                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>{c.label}</th>
+                      ))}
+                      <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openaiProviders.map(p => (
+                      <tr key={p.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                        {show('priority') && (
+                          <td style={{ padding: '14px 20px', textAlign: 'center' }}>
                             <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 4,
-                              background: '#fef3c7', color: '#92400e',
-                              borderRadius: 6, padding: '2px 8px', fontSize: 12, wordBreak: 'break-all',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 26, height: 26, borderRadius: 8,
+                              background: '#f3f4f6', color: '#374151',
+                              fontSize: 13, fontWeight: 700,
                             }}>
-                              <i className="bi bi-hdd-network" style={{ fontSize: 11, flexShrink: 0 }} />
-                              {p.proxy_url}
+                              {p.priority ?? 5}
                             </span>
-                          )
-                          : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>直连</span>
-                        }
-                      </td>
-                    )}
-                    {show('health') && (
-                      <td style={{ padding: '14px 20px' }}>
-                        <HealthBadge p={p} />
-                      </td>
-                    )}
-                    {show('status') && (
-                      <td style={{ padding: '14px 20px' }}>
-                        <div
-                          onClick={() => handleToggle(p)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            padding: '3px 10px', borderRadius: 20, cursor: 'pointer',
-                            background: p.is_active ? '#dcfce7' : '#f3f4f6',
-                            color: p.is_active ? '#16a34a' : '#6b7280',
-                            fontSize: 12, fontWeight: 500, userSelect: 'none', transition: 'all 0.2s',
-                          }}
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.is_active ? '#22c55e' : '#d1d5db' }} />
-                          {p.is_active ? '已启用' : '已禁用'}
-                        </div>
-                      </td>
-                    )}
-                    {show('createdAt') && (
-                      <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>
-                        {fmtDate(p.created_at)}
-                      </td>
-                    )}
-                    <td style={{ padding: '14px 20px' }}>
-                      <div className="d-flex gap-1">
-                        <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#6366f1" />
-                        <IconBtn
-                          icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
-                          title="测试连通性"
-                          onClick={() => handleTest(p)}
-                          hoverColor="#0ea5e9"
-                        />
-                        <IconBtn icon="bi-grid" title="查看模型列表" onClick={() => handleModels(p)} hoverColor="#10b981" />
-                        <IconBtn icon="bi-trash" title="删除" onClick={() => setDeleteTarget(p)} hoverColor="#ef4444" />
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+                          </td>
+                        )}
+                        {show('name') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            <span className="fw-semibold" style={{ fontSize: 14 }}>{p.name}</span>
+                          </td>
+                        )}
+                        {show('apiKey') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <code style={{
+                                fontSize: 12, background: '#f3f4f6', color: '#374151',
+                                padding: '3px 8px', borderRadius: 6, fontFamily: 'monospace',
+                                maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}>
+                                {revealedKeys[p.id] === 'loading'
+                                  ? '加载中...'
+                                  : revealedKeys[p.id]
+                                    ? revealedKeys[p.id]
+                                    : `${p.api_key_prefix}···`}
+                              </code>
+                              <button
+                                title={revealedKeys[p.id] ? '隐藏' : '查看完整 Key'}
+                                onClick={() => handleRevealKey(p)}
+                                style={{
+                                  border: 'none', background: 'none', padding: '2px 4px',
+                                  cursor: 'pointer', color: '#9ca3af', fontSize: 13, lineHeight: 1, flexShrink: 0,
+                                }}
+                              >
+                                <i className={`bi ${revealedKeys[p.id] && revealedKeys[p.id] !== 'loading' ? 'bi-eye-slash' : 'bi-eye'}`} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                        {show('baseUrl') && (
+                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 200 }}>
+                            {p.base_url
+                              ? <span style={{ wordBreak: 'break-all' }}>{p.base_url}</span>
+                              : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>默认</span>
+                            }
+                          </td>
+                        )}
+                        {show('proxy') && (
+                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 180 }}>
+                            {p.proxy_url
+                              ? (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                                  background: '#fef3c7', color: '#92400e',
+                                  borderRadius: 6, padding: '2px 8px', fontSize: 12, wordBreak: 'break-all',
+                                }}>
+                                  <i className="bi bi-hdd-network" style={{ fontSize: 11, flexShrink: 0 }} />
+                                  {p.proxy_url}
+                                </span>
+                              )
+                              : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>直连</span>
+                            }
+                          </td>
+                        )}
+                        {show('health') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            <HealthBadge p={p} />
+                          </td>
+                        )}
+                        {show('status') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            <div
+                              onClick={() => handleToggle(p)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                padding: '3px 10px', borderRadius: 20, cursor: 'pointer',
+                                background: p.is_active ? '#dcfce7' : '#f3f4f6',
+                                color: p.is_active ? '#16a34a' : '#6b7280',
+                                fontSize: 12, fontWeight: 500, userSelect: 'none', transition: 'all 0.2s',
+                              }}
+                            >
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.is_active ? '#22c55e' : '#d1d5db' }} />
+                              {p.is_active ? '已启用' : '已禁用'}
+                            </div>
+                          </td>
+                        )}
+                        {show('createdAt') && (
+                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>
+                            {fmtDate(p.created_at)}
+                          </td>
+                        )}
+                        <td style={{ padding: '14px 20px' }}>
+                          <div className="d-flex gap-1">
+                            <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#6366f1" />
+                            <IconBtn
+                              icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
+                              title="测试连通性"
+                              onClick={() => handleTest(p)}
+                              hoverColor="#0ea5e9"
+                            />
+                            <IconBtn icon="bi-grid" title="查看模型列表" onClick={() => handleModels(p)} hoverColor="#10b981" />
+                            <IconBtn icon="bi-trash" title="删除" onClick={() => setDeleteTarget(p)} hoverColor="#ef4444" />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
+
+          {/* Anthropic Group */}
+          {(() => {
+            const anthropicProviders = providers
+              .filter(p => p.type === 'anthropic')
+              .sort((a, b) => (a.priority ?? 5) - (b.priority ?? 5))
+            const tc = TYPE_CONFIG.anthropic
+            if (anthropicProviders.length === 0) return null
+            return (
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ 
+                  background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                  padding: '14px 20px',
+                  borderBottom: '1px solid #fde68a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      background: tc.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <i className={`bi ${tc.icon}`} style={{ color: '#fff', fontSize: 15 }} />
+                    </div>
+                    <div>
+                      <h5 className="mb-0 fw-bold" style={{ fontSize: 15, color: '#92400e' }}>{tc.label}</h5>
+                      <p className="mb-0 text-muted" style={{ fontSize: 12 }}>Anthropic Claude 系列供应商</p>
+                    </div>
+                  </div>
+                  <span className="badge rounded-pill" style={{ background: tc.color, color: '#fff', fontSize: 12, padding: '5px 12px' }}>
+                    {anthropicProviders.length} 个
+                  </span>
+                </div>
+                <table className="table table-hover mb-0 align-middle">
+                  <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                    <tr>
+                      {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
+                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>{c.label}</th>
+                      ))}
+                      <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {anthropicProviders.map(p => (
+                      <tr key={p.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                        {show('priority') && (
+                          <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 26, height: 26, borderRadius: 8,
+                              background: '#f3f4f6', color: '#374151',
+                              fontSize: 13, fontWeight: 700,
+                            }}>
+                              {p.priority ?? 5}
+                            </span>
+                          </td>
+                        )}
+                        {show('name') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            <span className="fw-semibold" style={{ fontSize: 14 }}>{p.name}</span>
+                          </td>
+                        )}
+                        {show('apiKey') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <code style={{
+                                fontSize: 12, background: '#f3f4f6', color: '#374151',
+                                padding: '3px 8px', borderRadius: 6, fontFamily: 'monospace',
+                                maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}>
+                                {revealedKeys[p.id] === 'loading'
+                                  ? '加载中...'
+                                  : revealedKeys[p.id]
+                                    ? revealedKeys[p.id]
+                                    : `${p.api_key_prefix}···`}
+                              </code>
+                              <button
+                                title={revealedKeys[p.id] ? '隐藏' : '查看完整 Key'}
+                                onClick={() => handleRevealKey(p)}
+                                style={{
+                                  border: 'none', background: 'none', padding: '2px 4px',
+                                  cursor: 'pointer', color: '#9ca3af', fontSize: 13, lineHeight: 1, flexShrink: 0,
+                                }}
+                              >
+                                <i className={`bi ${revealedKeys[p.id] && revealedKeys[p.id] !== 'loading' ? 'bi-eye-slash' : 'bi-eye'}`} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                        {show('baseUrl') && (
+                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 200 }}>
+                            {p.base_url
+                              ? <span style={{ wordBreak: 'break-all' }}>{p.base_url}</span>
+                              : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>默认</span>
+                            }
+                          </td>
+                        )}
+                        {show('proxy') && (
+                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 180 }}>
+                            {p.proxy_url
+                              ? (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                                  background: '#fef3c7', color: '#92400e',
+                                  borderRadius: 6, padding: '2px 8px', fontSize: 12, wordBreak: 'break-all',
+                                }}>
+                                  <i className="bi bi-hdd-network" style={{ fontSize: 11, flexShrink: 0 }} />
+                                  {p.proxy_url}
+                                </span>
+                              )
+                              : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>直连</span>
+                            }
+                          </td>
+                        )}
+                        {show('health') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            <HealthBadge p={p} />
+                          </td>
+                        )}
+                        {show('status') && (
+                          <td style={{ padding: '14px 20px' }}>
+                            <div
+                              onClick={() => handleToggle(p)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                padding: '3px 10px', borderRadius: 20, cursor: 'pointer',
+                                background: p.is_active ? '#dcfce7' : '#f3f4f6',
+                                color: p.is_active ? '#16a34a' : '#6b7280',
+                                fontSize: 12, fontWeight: 500, userSelect: 'none', transition: 'all 0.2s',
+                              }}
+                            >
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.is_active ? '#22c55e' : '#d1d5db' }} />
+                              {p.is_active ? '已启用' : '已禁用'}
+                            </div>
+                          </td>
+                        )}
+                        {show('createdAt') && (
+                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>
+                            {fmtDate(p.created_at)}
+                          </td>
+                        )}
+                        <td style={{ padding: '14px 20px' }}>
+                          <div className="d-flex gap-1">
+                            <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#6366f1" />
+                            <IconBtn
+                              icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
+                              title="测试连通性"
+                              onClick={() => handleTest(p)}
+                              hoverColor="#0ea5e9"
+                            />
+                            <IconBtn icon="bi-grid" title="查看模型列表" onClick={() => handleModels(p)} hoverColor="#10b981" />
+                            <IconBtn icon="bi-trash" title="删除" onClick={() => setDeleteTarget(p)} hoverColor="#ef4444" />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {/* Provider Form Modal */}
       <div className="modal fade" id="providerModal" tabIndex={-1} ref={modalRef}>

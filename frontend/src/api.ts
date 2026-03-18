@@ -124,6 +124,7 @@ export interface ProviderOut {
   proxy_url: string | null
   is_active: boolean
   priority: number
+  skip_health_check: boolean
   created_at: string
   last_check_at: string | null
   last_check_success: boolean | null
@@ -139,6 +140,7 @@ export interface ProviderCreate {
   proxy_url?: string
   is_active?: boolean
   priority?: number
+  skip_health_check?: boolean
 }
 
 export interface ProviderUpdate {
@@ -149,6 +151,7 @@ export interface ProviderUpdate {
   proxy_url?: string
   is_active?: boolean
   priority?: number
+  skip_health_check?: boolean
 }
 
 export interface ProviderDetail extends ProviderOut {

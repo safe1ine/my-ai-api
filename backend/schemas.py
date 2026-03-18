@@ -12,6 +12,7 @@ class ProviderBase(BaseModel):
     proxy_url: str | None = None
     is_active: bool = True
     priority: int = 5
+    skip_health_check: bool = False
 
 
 class ProviderCreate(ProviderBase):
@@ -26,6 +27,7 @@ class ProviderUpdate(BaseModel):
     proxy_url: str | None = None
     is_active: bool | None = None
     priority: int | None = None
+    skip_health_check: bool | None = None
 
 
 class ProviderOut(BaseModel):
@@ -39,6 +41,7 @@ class ProviderOut(BaseModel):
     proxy_url: str | None
     is_active: bool
     priority: int = 5
+    skip_health_check: bool = False
     created_at: datetime
     last_check_at: datetime | None = None
     last_check_success: bool | None = None
@@ -58,6 +61,7 @@ class ProviderOut(BaseModel):
             proxy_url=obj.proxy_url,
             is_active=obj.is_active,
             priority=obj.priority if obj.priority is not None else 5,
+            skip_health_check=obj.skip_health_check if hasattr(obj, 'skip_health_check') else False,
             created_at=obj.created_at,
             last_check_at=obj.last_check_at,
             last_check_success=obj.last_check_success,
@@ -78,6 +82,7 @@ class ProviderDetail(BaseModel):
     proxy_url: str | None
     is_active: bool
     priority: int = 5
+    skip_health_check: bool = False
     created_at: datetime
 
 

@@ -137,6 +137,7 @@ const emptyForm: ProviderCreate & { id?: number } = {
   proxy_url: '',
   is_active: true,
   priority: 5,
+  skip_health_check: false,
 }
 
 function fmtTokens(n: number): string {
@@ -218,7 +219,17 @@ export default function ProvidersPage() {
   }
 
   const openEdit = async (p: ProviderOut) => {
-    setForm({ id: p.id, name: p.name, type: p.type, api_key: '', base_url: p.base_url ?? '', proxy_url: p.proxy_url ?? '', is_active: p.is_active, priority: p.priority ?? 5 })
+    setForm({ 
+      id: p.id, 
+      name: p.name, 
+      type: p.type, 
+      api_key: '', 
+      base_url: p.base_url ?? '', 
+      proxy_url: p.proxy_url ?? '', 
+      is_active: p.is_active, 
+      priority: p.priority ?? 5,
+      skip_health_check: p.skip_health_check ?? false,
+    })
     setFormMode('edit')
     openModal()
     try {
@@ -251,10 +262,25 @@ export default function ProvidersPage() {
     setSaving(true)
     try {
       if (formMode === 'create') {
-        await providersApi.create({ name: form.name, type: form.type, api_key: form.api_key, base_url: form.base_url || undefined, proxy_url: form.proxy_url || undefined, is_active: form.is_active, priority: form.priority })
+        await providersApi.create({ 
+          name: form.name, 
+          type: form.type, 
+          api_key: form.api_key, 
+          base_url: form.base_url || undefined, 
+          proxy_url: form.proxy_url || undefined, 
+          is_active: form.is_active, 
+          priority: form.priority,
+          skip_health_check: form.skip_health_check,
+        })
         showToast('Upstream 已创建')
       } else {
-        const body: Record<string, unknown> = { name: form.name, type: form.type, is_active: form.is_active, priority: form.priority }
+        const body: Record<string, unknown> = { 
+          name: form.name, 
+          type: form.type, 
+          is_active: form.is_active, 
+          priority: form.priority,
+          skip_health_check: form.skip_health_check,
+        }
         if (form.api_key) body.api_key = form.api_key
         if (form.base_url !== undefined) body.base_url = form.base_url
         body.proxy_url = form.proxy_url || null
@@ -339,6 +365,14 @@ export default function ProvidersPage() {
   const fmtDate = (iso: string) => new Date(iso + 'Z').toLocaleString('zh-CN', { hour12: false })
 
   const HealthBadge = ({ p }: { p: ProviderOut }) => {
+    if (p.skip_health_check) {
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#d97706' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
+          已跳过检查
+        </span>
+      )
+    }
     if (p.last_check_success === null || p.last_check_at === null) {
       return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#9ca3af' }}>
@@ -943,6 +977,35 @@ export default function ProvidersPage() {
                   }}>
                     {form.priority ?? 5}
                   </span>
+                </div>
+              </div>
+              <div
+                onClick={() => setForm(f => ({ ...f, skip_health_check: !f.skip_health_check }))}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 14px', borderRadius: 10, cursor: 'pointer', marginBottom: 12,
+                  border: `1px solid ${form.skip_health_check ? '#fbbf24' : '#e5e7eb'}`,
+                  background: form.skip_health_check ? '#fffbeb' : '#f9fafb',
+                  userSelect: 'none', transition: 'all 0.15s',
+                }}
+              >
+                <div style={{
+                  width: 36, height: 20, borderRadius: 10, position: 'relative',
+                  background: form.skip_health_check ? '#f59e0b' : '#d1d5db', transition: 'background 0.2s',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 2, left: form.skip_health_check ? 18 : 2,
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                    transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: form.skip_health_check ? '#d97706' : '#6b7280' }}>
+                    跳过健康检查
+                  </span>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+                    开启后，系统将不检查此上游的健康状态，总是尝试使用
+                  </div>
                 </div>
               </div>
               <div

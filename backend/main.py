@@ -31,6 +31,7 @@ _migrations = [
     ("providers", "last_check_error", "ALTER TABLE providers ADD COLUMN last_check_error TEXT"),
     ("providers", "last_check_latency_ms", "ALTER TABLE providers ADD COLUMN last_check_latency_ms INTEGER"),
     ("providers", "priority", "ALTER TABLE providers ADD COLUMN priority INTEGER DEFAULT 5"),
+    ("providers", "skip_health_check", "ALTER TABLE providers ADD COLUMN skip_health_check BOOLEAN DEFAULT FALSE"),
     ("api_logs", "first_token_latency_ms", "ALTER TABLE api_logs ADD COLUMN first_token_latency_ms INTEGER DEFAULT 0"),
     ("api_logs", "is_stream", "ALTER TABLE api_logs ADD COLUMN is_stream BOOLEAN DEFAULT FALSE"),
     ("api_logs", "cache_read_tokens", "ALTER TABLE api_logs ADD COLUMN cache_read_tokens INTEGER DEFAULT 0"),

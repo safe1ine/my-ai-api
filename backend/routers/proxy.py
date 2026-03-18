@@ -47,7 +47,14 @@ def _client_ip(request: Request) -> str | None:
 
 
 def _pick_providers(db: Session, ptype: ProviderType) -> list[Provider]:
-    """返回按 健康优先→优先级→延迟 排序的上游列表（数字越小优先级越高）"""
+    """返回按 优先级→健康状态→延迟 排序的上游列表（数字越小优先级越高）
+    
+    排序规则：
+    1. 过滤：只保留 (跳过健康检查的) 或 (健康的) 上游，不健康的直接摘除
+    2. 按优先级数字升序（1 最高）
+    3. 同优先级内：跳过健康检查的 > 健康的
+    4. 同类别内按延迟升序（跳过健康检查的无延迟数据，排在同优先级队头）
+    """
     candidates = (
         db.query(Provider)
         .filter(Provider.type == ptype, Provider.is_active == True)  # noqa: E712
@@ -56,15 +63,31 @@ def _pick_providers(db: Session, ptype: ProviderType) -> list[Provider]:
     if not candidates:
         raise HTTPException(status_code=503, detail=f"没有可用的 {ptype} 上游，请先配置并启用")
 
-    healthy = sorted(
-        [p for p in candidates if p.last_check_success is True],
-        key=lambda p: (p.priority if p.priority is not None else 5, p.last_check_latency_ms or 999999),
-    )
-    others = sorted(
-        [p for p in candidates if p.last_check_success is not True],
-        key=lambda p: (p.priority if p.priority is not None else 5, p.last_check_latency_ms or 999999),
-    )
-    return healthy + others
+    # 过滤：只保留 (跳过健康检查) 或 (健康的) 上游
+    available = []
+    for p in candidates:
+        skip_check = getattr(p, 'skip_health_check', False)
+        if skip_check or p.last_check_success is True:
+            available.append(p)
+    
+    if not available:
+        raise HTTPException(status_code=503, detail=f"没有健康的 {ptype} 上游可用")
+
+    def sort_key(p: Provider):
+        priority = p.priority if p.priority is not None else 5
+        skip_check = getattr(p, 'skip_health_check', False)
+        
+        # 健康状态分类：0=跳过检查, 1=健康
+        if skip_check:
+            health_order = 0
+            latency = 0  # 跳过检查的排在同优先级队头
+        else:
+            health_order = 1
+            latency = p.last_check_latency_ms or 999999
+        
+        return (priority, health_order, latency)
+    
+    return sorted(available, key=sort_key)
 
 
 def _upstream_url(vendor: str, provider: Provider, path: str) -> str:

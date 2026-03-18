@@ -26,6 +26,7 @@ class Provider(Base):
     proxy_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     priority: Mapped[int] = mapped_column(Integer, default=5)
+    skip_health_check: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_check_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_check_success: Mapped[bool | None] = mapped_column(Boolean, nullable=True)

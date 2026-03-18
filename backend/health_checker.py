@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 async def health_check_loop():
-    """每 5 分钟对所有启用的上游做一次探活"""
+    """每 15 分钟对所有启用的上游做一次探活（跳过 skip_health_check=True 的上游）"""
     logger.info("Health checker service started")
     
     while True:
@@ -24,9 +24,11 @@ async def health_check_loop():
         db = SessionLocal()
         try:
             active_providers = db.query(Provider).filter(Provider.is_active == True).all()  # noqa: E712
-            logger.info(f"Starting health check for {len(active_providers)} active providers")
+            # 过滤掉跳过健康检查的上游
+            providers_to_check = [p for p in active_providers if not getattr(p, 'skip_health_check', False)]
+            logger.info(f"Starting health check for {len(providers_to_check)} active providers (skipped {len(active_providers) - len(providers_to_check)} with skip_health_check=True)")
             
-            for p in active_providers:
+            for p in providers_to_check:
                 try:
                     await do_health_check(db, p)
                     logger.info(

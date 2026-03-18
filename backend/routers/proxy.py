@@ -159,11 +159,18 @@ def _parse_anthropic_stream_log(chunks: list[bytes]) -> dict:
             t = d.get("type")
             if t == "message_start":
                 u = d.get("message", {}).get("usage", {})
+                # message_start 里的 usage 通常是初始值（都是 0）
                 input_tokens = u.get("input_tokens", 0)
                 cache_read = u.get("cache_read_input_tokens", 0)
                 cache_write = u.get("cache_creation_input_tokens", 0)
             elif t == "message_delta":
-                output_tokens = d.get("usage", {}).get("output_tokens", 0)
+                u = d.get("usage", {})
+                # message_delta 里才有真正的 token 统计
+                if u:
+                    input_tokens = u.get("input_tokens", input_tokens)
+                    output_tokens = u.get("output_tokens", output_tokens)
+                    cache_read = u.get("cache_read_input_tokens", cache_read)
+                    cache_write = u.get("cache_creation_input_tokens", cache_write)
             elif t == "content_block_delta":
                 delta = d.get("delta", {})
                 delta_type = delta.get("type")

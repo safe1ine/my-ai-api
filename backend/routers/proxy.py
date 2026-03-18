@@ -359,7 +359,7 @@ async def _proxy(request: Request, vendor: str, path: str,
                             stream_status = LogStatus.success if (parsed["output_tokens"] > 0 or parsed["response_summary"]) else LogStatus.error
                             stream_error = None
                             if stream_status == LogStatus.error:
-                                stream_error = b"".join(collected)[:256].decode("utf-8", errors="replace")
+                                stream_error = b"".join(collected)[:512].decode("utf-8", errors="replace")
                             _write_log(db,
                                 is_stream=True,
                                 provider_id=provider.id,
@@ -436,9 +436,9 @@ async def _proxy(request: Request, vendor: str, path: str,
                             response_summary = extract_response_summary(text)
                             status = LogStatus.success if resp.status_code == 200 and bool(rj.get("content")) else LogStatus.error
                         if status == LogStatus.error:
-                            error_msg = resp.content[:256].decode("utf-8", errors="replace")
+                            error_msg = resp.content[:512].decode("utf-8", errors="replace")
                     except Exception:
-                        error_msg = resp.content[:256].decode("utf-8", errors="replace") if resp.content else f"HTTP {resp.status_code}"
+                        error_msg = resp.content[:512].decode("utf-8", errors="replace") if resp.content else f"HTTP {resp.status_code}"
                     _write_log(db,
                         provider_id=provider.id,
                         client_key_id=client_key.id,

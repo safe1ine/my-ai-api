@@ -19,7 +19,7 @@ logger = logging.getLogger("main")
 
 Base.metadata.create_all(bind=engine)
 
-# 兼容旧数据库：按需添加新列 (SQLite 兼容版本)
+# 兼容旧数据库：按需添加新列 (支持 SQLite 和 PostgreSQL)
 _migrations = [
     ("providers", "proxy_url", "ALTER TABLE providers ADD COLUMN proxy_url VARCHAR(500)"),
     ("providers", "last_check_at", "ALTER TABLE providers ADD COLUMN last_check_at TIMESTAMP"),
@@ -34,13 +34,27 @@ _migrations = [
     ("api_logs", "key_name", "ALTER TABLE api_logs ADD COLUMN key_name VARCHAR(100) NOT NULL DEFAULT 'unknown'"),
     ("api_logs", "client_ip", "ALTER TABLE api_logs ADD COLUMN client_ip VARCHAR(45)"),
 ]
+
+def _column_exists(conn, table_name: str, column_name: str) -> bool:
+    """检查列是否存在，兼容 SQLite 和 PostgreSQL"""
+    db_url = str(engine.url)
+    if "sqlite" in db_url:
+        # SQLite: 使用 PRAGMA
+        result = conn.execute(text(f"PRAGMA table_info({table_name})"))
+        columns = [row[1] for row in result]
+        return column_name in columns
+    else:
+        # PostgreSQL: 使用 information_schema
+        result = conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = :table AND column_name = :column"
+        ), {"table": table_name, "column": column_name})
+        return result.fetchone() is not None
+
 with engine.connect() as _conn:
     for table_name, column_name, _sql in _migrations:
         try:
-            # 检查列是否已存在
-            result = _conn.execute(text(f"PRAGMA table_info({table_name})"))
-            columns = [row[1] for row in result]
-            if column_name not in columns:
+            if not _column_exists(_conn, table_name, column_name):
                 _conn.execute(text(_sql))
         except Exception:
             # 表可能不存在，忽略错误

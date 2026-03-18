@@ -182,12 +182,10 @@ def _parse_anthropic_stream_log(chunks: list[bytes]) -> dict:
                     c = delta.get("thinking", "")
                     if c:
                         thinking_parts.append(c)
-        except Exception as e:
-            logger.warning("[parse] failed to parse line: %s, error: %s", line[:100], e)
+        except Exception:
+            pass
     # 优先使用文本响应，如果没有则使用 thinking 内容
     content = "".join(response_parts) or "".join(thinking_parts)
-    logger.warning("[parse] response_parts=%d thinking_parts=%d content_len=%d", 
-                   len(response_parts), len(thinking_parts), len(content))
     return {
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
@@ -268,9 +266,6 @@ async def _proxy(request: Request, vendor: str, path: str,
     params = dict(request.query_params)
     do_log = _should_log(vendor, path)
     client_ip = _client_ip(request)
-    
-    logger.warning("[proxy] vendor=%s path=%s normalized_path=%s do_log=%s", 
-                   vendor, path, _normalize_path(path), do_log)
 
     # 解析请求摘要（仅日志路径，只做一次）
     req_body_json: dict = {}
@@ -285,22 +280,6 @@ async def _proxy(request: Request, vendor: str, path: str,
             pass
 
     is_stream = bool(req_body_json.get("stream"))
-
-    if do_log and req_body_json:
-        msgs = req_body_json.get("messages", [])
-        sys = req_body_json.get("system")
-        logger.info("[req] vendor=%s model=%s stream=%s msgs=%d sys_type=%s",
-                    vendor, req_body_json.get("model", "?"), is_stream, len(msgs),
-                    type(sys).__name__ if sys is not None else "None")
-        for i, m in enumerate(msgs):
-            c = m.get("content")
-            if isinstance(c, list):
-                block_types = [b.get("type") for b in c if isinstance(b, dict)]
-                has_cc = any("cache_control" in b for b in c if isinstance(b, dict))
-                logger.info("[req] messages[%d] role=%s blocks=%s has_cache_control=%s",
-                            i, m.get("role"), block_types, has_cc)
-            else:
-                logger.info("[req] messages[%d] role=%s content_type=str", i, m.get("role"))
 
     # OpenAI 流式：注入 stream_options 使最后一个 chunk 带 usage
     if is_stream and vendor == "openai" and do_log:
@@ -371,37 +350,22 @@ async def _proxy(request: Request, vendor: str, path: str,
                                 first_token_time = int((time.monotonic() - start) * 1000)
                             if do_log:
                                 collected.append(chunk)
-                                logger.debug("[stream] collected chunk: %d bytes", len(chunk))
                             yield chunk
                     finally:
                         await resp.aclose()
                         await http_client.aclose()
                         if do_log:
-                            logger.warning("[stream] collected %d chunks, total %d bytes", len(collected), sum(len(c) for c in collected))
-                            
-                            # 打印完整响应内容
-                            full_response = b"".join(collected).decode("utf-8", errors="replace")
-                            logger.warning("[stream] FULL RESPONSE:\n%s", full_response)
-                            
                             total_ms = int((time.monotonic() - start) * 1000)
                             parser = (_parse_openai_stream_log if vendor == "openai"
                                       else _parse_anthropic_stream_log)
                             parsed = parser(collected)
-                            logger.info("[stream] parsed: input=%d output=%d cache_read=%d cache_write=%d has_summary=%s summary_len=%d has_thinking=%s",
-                                        parsed["input_tokens"], parsed["output_tokens"],
-                                        parsed["cache_read_tokens"], parsed["cache_write_tokens"],
-                                        bool(parsed["response_summary"]), len(parsed["response_summary"] or ""), parsed.get("has_thinking", False))
                             # 成功条件：有输出 token、有响应摘要、或有 thinking 内容
                             has_content = parsed["output_tokens"] > 0 or parsed["response_summary"] or parsed.get("has_thinking", False)
                             stream_status = LogStatus.success if has_content else LogStatus.error
-                            logger.warning("[stream] FINAL STATUS=%s has_content=%s output_tokens=%d has_summary=%s has_thinking=%s", 
-                                         stream_status, has_content, parsed["output_tokens"], 
-                                         bool(parsed["response_summary"]), parsed.get("has_thinking", False))
                             stream_error = None
                             if stream_status == LogStatus.error:
-                                stream_error = b"".join(collected)[:1024].decode("utf-8", errors="replace")
-                                logger.error("[stream] ERROR - Full response (first 2048 bytes):\n%s", 
-                                           b"".join(collected)[:2048].decode("utf-8", errors="replace"))
+                                # 保存完整的错误响应
+                                stream_error = b"".join(collected).decode("utf-8", errors="replace")
                             _write_log(db,
                                 is_stream=True,
                                 provider_id=provider.id,
@@ -452,11 +416,6 @@ async def _proxy(request: Request, vendor: str, path: str,
 
                 # 成功：记录日志并返回
                 if do_log:
-                    # 打印完整响应内容
-                    logger.warning("[non-stream] FULL RESPONSE (status=%d):\n%s", 
-                                 resp.status_code, 
-                                 resp.content.decode("utf-8", errors="replace"))
-                    
                     in_tok = out_tok = cache_read = cache_write = 0
                     response_summary = None
                     error_msg = None
@@ -483,9 +442,11 @@ async def _proxy(request: Request, vendor: str, path: str,
                             response_summary = extract_response_summary(text)
                             status = LogStatus.success if resp.status_code == 200 and bool(rj.get("content")) else LogStatus.error
                         if status == LogStatus.error:
-                            error_msg = resp.content[:1024].decode("utf-8", errors="replace")
+                            # 保存完整的错误响应
+                            error_msg = resp.content.decode("utf-8", errors="replace")
                     except Exception:
-                        error_msg = resp.content[:1024].decode("utf-8", errors="replace") if resp.content else f"HTTP {resp.status_code}"
+                        # 保存完整的错误响应
+                        error_msg = resp.content.decode("utf-8", errors="replace") if resp.content else f"HTTP {resp.status_code}"
                     _write_log(db,
                         provider_id=provider.id,
                         client_key_id=client_key.id,
@@ -516,7 +477,7 @@ async def _proxy(request: Request, vendor: str, path: str,
         except HTTPException:
             raise
         except Exception as exc:
-            last_error = str(exc)[:1024]
+            last_error = str(exc)
             logger.warning("[proxy] provider=%s exception: %s, trying next (attempt %d/%d)",
                            provider.name, exc, attempt + 1, len(provider_list))
             continue

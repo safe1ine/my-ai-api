@@ -359,11 +359,13 @@ async def _proxy(request: Request, vendor: str, path: str,
                                 first_token_time = int((time.monotonic() - start) * 1000)
                             if do_log:
                                 collected.append(chunk)
+                                logger.debug("[stream] collected chunk: %d bytes", len(chunk))
                             yield chunk
                     finally:
                         await resp.aclose()
                         await http_client.aclose()
                         if do_log:
+                            logger.warning("[stream] collected %d chunks, total %d bytes", len(collected), sum(len(c) for c in collected))
                             total_ms = int((time.monotonic() - start) * 1000)
                             parser = (_parse_openai_stream_log if vendor == "openai"
                                       else _parse_anthropic_stream_log)

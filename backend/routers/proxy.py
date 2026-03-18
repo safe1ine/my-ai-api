@@ -363,13 +363,14 @@ async def _proxy(request: Request, vendor: str, path: str,
                             parser = (_parse_openai_stream_log if vendor == "openai"
                                       else _parse_anthropic_stream_log)
                             parsed = parser(collected)
-                            logger.info("[stream] parsed tokens: input=%d output=%d cache_read=%d cache_write=%d has_summary=%s has_thinking=%s",
+                            logger.info("[stream] parsed: input=%d output=%d cache_read=%d cache_write=%d has_summary=%s summary_len=%d has_thinking=%s",
                                         parsed["input_tokens"], parsed["output_tokens"],
                                         parsed["cache_read_tokens"], parsed["cache_write_tokens"],
-                                        bool(parsed["response_summary"]), parsed.get("has_thinking", False))
+                                        bool(parsed["response_summary"]), len(parsed["response_summary"] or ""), parsed.get("has_thinking", False))
                             # 成功条件：有输出 token、有响应摘要、或有 thinking 内容
                             has_content = parsed["output_tokens"] > 0 or parsed["response_summary"] or parsed.get("has_thinking", False)
                             stream_status = LogStatus.success if has_content else LogStatus.error
+                            logger.info("[stream] status=%s has_content=%s", stream_status, has_content)
                             stream_error = None
                             if stream_status == LogStatus.error:
                                 stream_error = b"".join(collected)[:512].decode("utf-8", errors="replace")

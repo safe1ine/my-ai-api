@@ -9,6 +9,12 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from database import engine, Base, SessionLocal
 
+# 配置日志级别
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 # 导入所有模型确保建表
 import models  # noqa: F401
 

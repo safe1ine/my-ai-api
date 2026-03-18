@@ -370,7 +370,9 @@ async def _proxy(request: Request, vendor: str, path: str,
                             # 成功条件：有输出 token、有响应摘要、或有 thinking 内容
                             has_content = parsed["output_tokens"] > 0 or parsed["response_summary"] or parsed.get("has_thinking", False)
                             stream_status = LogStatus.success if has_content else LogStatus.error
-                            logger.info("[stream] status=%s has_content=%s", stream_status, has_content)
+                            logger.warning("[stream] FINAL STATUS=%s has_content=%s output_tokens=%d has_summary=%s has_thinking=%s", 
+                                         stream_status, has_content, parsed["output_tokens"], 
+                                         bool(parsed["response_summary"]), parsed.get("has_thinking", False))
                             stream_error = None
                             if stream_status == LogStatus.error:
                                 stream_error = b"".join(collected)[:1024].decode("utf-8", errors="replace")

@@ -145,6 +145,7 @@ def _parse_anthropic_stream_log(chunks: list[bytes]) -> dict:
     text = b"".join(chunks).decode("utf-8", errors="replace")
     input_tokens = output_tokens = cache_read = cache_write = 0
     response_parts: list[str] = []
+    thinking_parts: list[str] = []
     for line in text.splitlines():
         if not line.startswith("data: "):
             continue
@@ -159,17 +160,27 @@ def _parse_anthropic_stream_log(chunks: list[bytes]) -> dict:
             elif t == "message_delta":
                 output_tokens = d.get("usage", {}).get("output_tokens", 0)
             elif t == "content_block_delta":
-                c = d.get("delta", {}).get("text", "")
-                if c:
-                    response_parts.append(c)
+                delta = d.get("delta", {})
+                delta_type = delta.get("type")
+                if delta_type == "text_delta":
+                    c = delta.get("text", "")
+                    if c:
+                        response_parts.append(c)
+                elif delta_type == "thinking_delta":
+                    c = delta.get("thinking", "")
+                    if c:
+                        thinking_parts.append(c)
         except Exception:
             pass
+    # 优先使用文本响应，如果没有则使用 thinking 内容
+    content = "".join(response_parts) or "".join(thinking_parts)
     return {
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "cache_read_tokens": cache_read,
         "cache_write_tokens": cache_write,
-        "response_summary": extract_response_summary("".join(response_parts)) if response_parts else None,
+        "response_summary": extract_response_summary(content) if content else None,
+        "has_thinking": len(thinking_parts) > 0,
     }
 
 
@@ -352,11 +363,13 @@ async def _proxy(request: Request, vendor: str, path: str,
                             parser = (_parse_openai_stream_log if vendor == "openai"
                                       else _parse_anthropic_stream_log)
                             parsed = parser(collected)
-                            logger.info("[stream] parsed tokens: input=%d output=%d cache_read=%d cache_write=%d has_summary=%s",
+                            logger.info("[stream] parsed tokens: input=%d output=%d cache_read=%d cache_write=%d has_summary=%s has_thinking=%s",
                                         parsed["input_tokens"], parsed["output_tokens"],
                                         parsed["cache_read_tokens"], parsed["cache_write_tokens"],
-                                        bool(parsed["response_summary"]))
-                            stream_status = LogStatus.success if (parsed["output_tokens"] > 0 or parsed["response_summary"]) else LogStatus.error
+                                        bool(parsed["response_summary"]), parsed.get("has_thinking", False))
+                            # 成功条件：有输出 token、有响应摘要、或有 thinking 内容
+                            has_content = parsed["output_tokens"] > 0 or parsed["response_summary"] or parsed.get("has_thinking", False)
+                            stream_status = LogStatus.success if has_content else LogStatus.error
                             stream_error = None
                             if stream_status == LogStatus.error:
                                 stream_error = b"".join(collected)[:512].decode("utf-8", errors="replace")

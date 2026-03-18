@@ -90,16 +90,18 @@ function DetailSection({ label, content, danger }: { label: string; content: str
       <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>
         {label}
       </div>
-      <div style={{
+      <pre style={{
         background: danger ? '#fff1f2' : '#f8faff',
         border: `1px solid ${danger ? '#fecdd3' : '#e0e7ff'}`,
         borderRadius: 8, padding: '8px 12px',
         fontSize: 12, lineHeight: 1.7, color: danger ? '#be123c' : '#374151',
-        maxHeight: 100, overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-        fontFamily: danger ? 'monospace' : 'inherit',
+        fontFamily: 'monospace',
+        margin: 0,
+        whiteSpace: 'pre',
+        overflowX: 'auto',
       }}>
         {content}
-      </div>
+      </pre>
     </div>
   )
 }
@@ -537,12 +539,11 @@ export default function LogsPage() {
                     </td>
                   </tr>
 
-                  {expanded && hasDetail && (
+                    {expanded && hasDetail && (
                     <tr style={{ borderTop: 0 }}>
-                      <td colSpan={colSpan} style={{ padding: '0 14px 14px', background: '#fafbff' }}>
+                      <td colSpan={colSpan} style={{ padding: '14px', background: '#fafbff' }}>
                         <div style={{
-                          border: '1px solid #e0e7ff', borderRadius: 10,
-                          padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
+                          display: 'flex', flexDirection: 'column', gap: 12,
                         }}>
                           {hasCacheTokens && (
                             <div style={{ display: 'flex', gap: 12 }}>

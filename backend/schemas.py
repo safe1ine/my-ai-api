@@ -124,6 +124,14 @@ class ProviderTokenStats(BaseModel):
     today_output_tokens: int = 0
 
 
+class ClientKeyTokenStats(BaseModel):
+    client_key_id: int
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    today_input_tokens: int = 0
+    today_output_tokens: int = 0
+
+
 # ── Proxy (OpenAI 兼容格式) ───────────────────────────────
 class ChatMessage(BaseModel):
     role: str

@@ -183,10 +183,19 @@ export interface KeyOut {
   created_at: string
 }
 
+export interface KeyTokenStats {
+  client_key_id: number
+  total_input_tokens: number
+  total_output_tokens: number
+  today_input_tokens: number
+  today_output_tokens: number
+}
+
 export const keysApi = {
   list: () => http.get<KeyOut[]>('/keys').then(r => r.data),
   create: (name: string) => http.post<KeyOut>('/keys', { name }).then(r => r.data),
   update: (id: number, body: { name?: string; is_active?: boolean }) =>
     http.put<KeyOut>(`/keys/${id}`, body).then(r => r.data),
   delete: (id: number) => http.delete(`/keys/${id}`),
+  tokenStats: () => http.get<KeyTokenStats[]>('/keys/token-stats').then(r => r.data),
 }

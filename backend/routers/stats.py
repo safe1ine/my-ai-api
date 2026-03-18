@@ -2,11 +2,32 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, case, literal_column
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, engine
 from models import ApiLog, LogStatus
 from schemas import ApiKeyStat, ModelStat, StatsOverview, UsagePoint
 
 router = APIRouter()
+
+
+def _get_bucket_expr(bucket_minutes: int):
+    """生成兼容 SQLite 和 PostgreSQL 的时间桶表达式"""
+    is_sqlite = engine.dialect.name == "sqlite"
+    
+    if bucket_minutes < 60:
+        if is_sqlite:
+            # SQLite: 按 Unix 时间戳除以分钟取整再转回 datetime
+            bucket_sql = f"datetime((strftime('%s', created_at) / {bucket_minutes * 60}) * {bucket_minutes * 60}, 'unixepoch')"
+        else:
+            # PostgreSQL
+            bucket_sql = f"date_trunc('hour', created_at) + (extract(minute from created_at)::int / {bucket_minutes}) * interval '{bucket_minutes} minutes'"
+    else:
+        hours = bucket_minutes // 60
+        if is_sqlite:
+            bucket_sql = f"datetime((strftime('%s', created_at) / {bucket_minutes * 60}) * {bucket_minutes * 60}, 'unixepoch')"
+        else:
+            bucket_sql = f"date_trunc('day', created_at) + (extract(hour from created_at)::int / {hours}) * interval '{hours} hours'"
+    
+    return literal_column(bucket_sql)
 
 
 @router.get("/overview", response_model=StatsOverview)
@@ -48,19 +69,7 @@ def get_usage(
         start_dt = now - timedelta(days=30)
         bucket_minutes = 120
 
-    # 按时间桶聚合
-    if bucket_minutes < 60:
-        bucket_sql = (
-            f"date_trunc('hour', created_at) + "
-            f"(extract(minute from created_at)::int / {bucket_minutes}) * interval '{bucket_minutes} minutes'"
-        )
-    else:
-        hours = bucket_minutes // 60
-        bucket_sql = (
-            f"date_trunc('day', created_at) + "
-            f"(extract(hour from created_at)::int / {hours}) * interval '{hours} hours'"
-        )
-    bucket_expr = literal_column(bucket_sql)
+    bucket_expr = _get_bucket_expr(bucket_minutes)
 
     rows = (
         db.query(

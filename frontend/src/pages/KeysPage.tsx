@@ -1,9 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { keysApi, KeyOut } from '../api'
+import { keysApi, KeyOut, KeyTokenStats } from '../api'
+
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
+}
 
 export default function KeysPage() {
   const [keys, setKeys] = useState<KeyOut[]>([])
   const [loading, setLoading] = useState(true)
+  const [tokenStats, setTokenStats] = useState<Record<number, KeyTokenStats>>({})
   const [newName, setNewName] = useState('')
   const [creating, setCreating] = useState(false)
   const [createdKey, setCreatedKey] = useState<KeyOut | null>(null)
@@ -15,7 +23,15 @@ export default function KeysPage() {
 
   const load = () => {
     setLoading(true)
-    keysApi.list().then(setKeys).finally(() => setLoading(false))
+    Promise.all([
+      keysApi.list(),
+      keysApi.tokenStats(),
+    ]).then(([keyList, stats]) => {
+      setKeys(keyList)
+      const map: Record<number, KeyTokenStats> = {}
+      for (const s of stats) map[s.client_key_id] = s
+      setTokenStats(map)
+    }).finally(() => setLoading(false))
   }
 
   useEffect(() => { load() }, [])
@@ -178,6 +194,7 @@ export default function KeysPage() {
               <tr>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>名称</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>Token</th>
+                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>Token 用量</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>状态</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>创建时间</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0, width: 80 }}>操作</th>
@@ -221,6 +238,36 @@ export default function KeysPage() {
                         <i className={`bi ${copiedRowId === k.id ? 'bi-check-lg' : 'bi-clipboard'}`} />
                       </button>
                     </div>
+                  </td>
+                  <td style={{ padding: '14px 20px' }}>
+                    {(() => {
+                      const s = tokenStats[k.id]
+                      if (!s || (s.total_input_tokens === 0 && s.total_output_tokens === 0)) {
+                        return <span style={{ fontSize: 12, color: '#9ca3af' }}>--</span>
+                      }
+                      return (
+                        <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <span style={{ color: '#6b7280' }}>总计</span>
+                            <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.total_input_tokens.toLocaleString()}`}>
+                              <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_input_tokens)}
+                            </span>
+                            <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.total_output_tokens.toLocaleString()}`}>
+                              <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_output_tokens)}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <span style={{ color: '#6b7280' }}>今日</span>
+                            <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.today_input_tokens.toLocaleString()}`}>
+                              <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_input_tokens)}
+                            </span>
+                            <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.today_output_tokens.toLocaleString()}`}>
+                              <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_output_tokens)}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td style={{ padding: '14px 20px' }}>
                     <div

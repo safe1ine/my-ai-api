@@ -20,7 +20,7 @@ async def health_check_loop():
     logger.info("Health checker service started")
     
     while True:
-        await asyncio.sleep(300)  # 5 分钟
+        await asyncio.sleep(900)  # 15 分钟
         db = SessionLocal()
         try:
             active_providers = db.query(Provider).filter(Provider.is_active == True).all()  # noqa: E712

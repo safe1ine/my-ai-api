@@ -383,6 +383,8 @@ async def _proxy(request: Request, vendor: str, path: str,
                             stream_error = None
                             if stream_status == LogStatus.error:
                                 stream_error = b"".join(collected)[:1024].decode("utf-8", errors="replace")
+                                logger.error("[stream] ERROR - Full response (first 2048 bytes):\n%s", 
+                                           b"".join(collected)[:2048].decode("utf-8", errors="replace"))
                             _write_log(db,
                                 is_stream=True,
                                 provider_id=provider.id,

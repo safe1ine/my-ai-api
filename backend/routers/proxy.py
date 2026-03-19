@@ -291,6 +291,17 @@ async def _proxy(request: Request, vendor: str, path: str,
             ApiLog.client_key_id == client_key.id
         ).scalar() or 0
         if used >= client_key.token_limit:
+            _write_log(db,
+                client_key_id=client_key.id,
+                model="",
+                key_name=client_key.name,
+                input_tokens=0, output_tokens=0, total_tokens=0,
+                status=LogStatus.error,
+                latency_ms=0,
+                first_token_latency_ms=0,
+                client_ip=_client_ip(request),
+                error_message="Token 用量已达上限",
+            )
             raise HTTPException(status_code=429, detail="Token 用量已达上限")
 
     body = await request.body()

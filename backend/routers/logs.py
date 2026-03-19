@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import ApiLog
+from models import ApiLog, Provider, ClientKey
 
 router = APIRouter()
 
@@ -40,6 +40,8 @@ def list_logs(
     page_size: int = Query(20, ge=1, le=100),
     status: str | None = Query(None, pattern="^(success|error)$"),
     model: str | None = None,
+    provider_name: str | None = None,
+    key_name: str | None = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(ApiLog)
@@ -47,6 +49,10 @@ def list_logs(
         q = q.filter(ApiLog.status == status)
     if model:
         q = q.filter(ApiLog.model.contains(model))
+    if provider_name:
+        q = q.join(ApiLog.provider).filter(Provider.name.contains(provider_name))
+    if key_name:
+        q = q.join(ApiLog.client_key).filter(ClientKey.name.contains(key_name))
 
     total = q.count()
     rows = q.order_by(ApiLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()

@@ -110,7 +110,7 @@ export interface LogsResponse {
 }
 
 export const logsApi = {
-  list: (params: { page?: number; page_size?: number; status?: string; model?: string }) =>
+  list: (params: { page?: number; page_size?: number; status?: string; model?: string; provider_name?: string; key_name?: string }) =>
     http.get<LogsResponse>('/logs', { params }).then(r => r.data),
 }
 

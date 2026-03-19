@@ -16,14 +16,14 @@ interface ColDef {
 }
 
 const COL_DEFS: ColDef[] = [
-  { key: 'time',       label: '时间',    w: 148,           defaultOn: true  },
+  { key: 'time',       label: '时间',    w: 120,           defaultOn: true  },
   { key: 'status',     label: '状态',    w: 64,            defaultOn: true  },
   { key: 'model',      label: '模型',                      defaultOn: true  },
-  { key: 'provider',   label: '上游',    w: 90,            defaultOn: false },
-  { key: 'token',      label: 'Token',   w: 90,            defaultOn: false },
+  { key: 'provider',   label: '上游',    w: 140,           defaultOn: false },
+  { key: 'token',      label: 'Token',   w: 140,           defaultOn: false },
   { key: 'stream',     label: '流式',    w: 64,            defaultOn: false },
-  { key: 'input',      label: '输入',    w: 160, right: true, defaultOn: true  },
-  { key: 'output',     label: '输出',    w: 140, right: true, defaultOn: true  },
+  { key: 'input',      label: '输入',    w: 90, right: true, defaultOn: true  },
+  { key: 'output',     label: '输出',    w: 90, right: true, defaultOn: true  },
   { key: 'ip',         label: 'IP',      w: 110,           defaultOn: false },
   { key: 'firstToken', label: '首Token', w: 80,  right: true, defaultOn: true  },
   { key: 'latency',    label: '耗时',    w: 64,  right: true, defaultOn: true  },
@@ -266,6 +266,10 @@ export default function LogsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [modelFilter, setModelFilter] = useState('')
   const [modelInput, setModelInput] = useState('')
+  const [providerFilter, setProviderFilter] = useState('')
+  const [providerInput, setProviderInput] = useState('')
+  const [keyFilter, setKeyFilter] = useState('')
+  const [keyInput, setKeyInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(loadVisibleCols)
@@ -278,25 +282,27 @@ export default function LogsPage() {
 
   const show = (key: ColKey) => visibleCols.has(key)
 
-  const load = (p = page, sf = statusFilter, mf = modelFilter) => {
+  const load = (p = page, sf = statusFilter, mf = modelFilter, pf = providerFilter, kf = keyFilter) => {
     setLoading(true)
-    logsApi.list({ page: p, page_size: PAGE_SIZE, status: sf || undefined, model: mf || undefined })
+    logsApi.list({ page: p, page_size: PAGE_SIZE, status: sf || undefined, model: mf || undefined, provider_name: pf || undefined, key_name: kf || undefined })
       .then(res => { setItems(res.items); setTotal(res.total) })
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [page, statusFilter, modelFilter])
+  useEffect(() => { load() }, [page, statusFilter, modelFilter, providerFilter, keyFilter])
 
   const handleSearch = () => {
     setPage(1)
     setModelFilter(modelInput)
-    load(1, statusFilter, modelInput)
+    setProviderFilter(providerInput)
+    setKeyFilter(keyInput)
+    load(1, statusFilter, modelInput, providerInput, keyInput)
   }
 
   const handleStatus = (s: string) => {
     setPage(1)
     setStatusFilter(s)
-    load(1, s, modelFilter)
+    load(1, s, modelFilter, providerFilter, keyFilter)
   }
 
   const handlePageChange = (p: number) => {
@@ -306,10 +312,10 @@ export default function LogsPage() {
 
   const fmtDate = (iso: string) => {
     const d = new Date(iso + 'Z')  // 后端存储 UTC，加 Z 后按本地时区显示
-    return d.toLocaleString('zh-CN', { hour12: false })
+    return d.toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
 
-  const hasActiveFilter = statusFilter || modelFilter
+  const hasActiveFilter = statusFilter || modelFilter || providerFilter || keyFilter
   // +1 for the expand chevron column
   const colSpan = visibleCols.size + 1
 
@@ -358,7 +364,7 @@ export default function LogsPage() {
           })}
         </div>
 
-        <div style={{ flex: 1, minWidth: 200, maxWidth: 320, display: 'flex', gap: 0 }}>
+        <div style={{ flex: 1, minWidth: 160, maxWidth: 240, display: 'flex', gap: 0 }}>
           <input
             ref={searchRef}
             style={{
@@ -366,7 +372,7 @@ export default function LogsPage() {
               border: '1px solid #dadce0', borderRight: 'none',
               borderRadius: '4px 0 0 4px', outline: 'none', background: '#fff',
             }}
-            placeholder="搜索模型名称..."
+            placeholder="搜索模型..."
             value={modelInput}
             onChange={e => setModelInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -383,9 +389,57 @@ export default function LogsPage() {
           </button>
         </div>
 
+        <div style={{ flex: 1, minWidth: 140, maxWidth: 200, display: 'flex', gap: 0 }}>
+          <input
+            style={{
+              flex: 1, padding: '5px 12px', fontSize: 13,
+              border: '1px solid #dadce0', borderRight: 'none',
+              borderRadius: '4px 0 0 4px', outline: 'none', background: '#fff',
+            }}
+            placeholder="搜索上游..."
+            value={providerInput}
+            onChange={e => setProviderInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+          />
+          <button
+            onClick={handleSearch}
+            style={{
+              padding: '5px 12px', border: '1px solid #dadce0',
+              borderRadius: '0 4px 4px 0', background: '#fff',
+              color: '#5f6368', cursor: 'pointer', fontSize: 13,
+            }}
+          >
+            <i className="bi bi-search" />
+          </button>
+        </div>
+
+        <div style={{ flex: 1, minWidth: 140, maxWidth: 200, display: 'flex', gap: 0 }}>
+          <input
+            style={{
+              flex: 1, padding: '5px 12px', fontSize: 13,
+              border: '1px solid #dadce0', borderRight: 'none',
+              borderRadius: '4px 0 0 4px', outline: 'none', background: '#fff',
+            }}
+            placeholder="搜索 Token..."
+            value={keyInput}
+            onChange={e => setKeyInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+          />
+          <button
+            onClick={handleSearch}
+            style={{
+              padding: '5px 12px', border: '1px solid #dadce0',
+              borderRadius: '0 4px 4px 0', background: '#fff',
+              color: '#5f6368', cursor: 'pointer', fontSize: 13,
+            }}
+          >
+            <i className="bi bi-search" />
+          </button>
+        </div>
+
         {hasActiveFilter && (
           <button
-            onClick={() => { setStatusFilter(''); setModelFilter(''); setModelInput(''); setPage(1) }}
+            onClick={() => { setStatusFilter(''); setModelFilter(''); setModelInput(''); setProviderFilter(''); setProviderInput(''); setKeyFilter(''); setKeyInput(''); setPage(1) }}
             style={{
               padding: '5px 12px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
               border: '1px solid #dadce0', background: '#fff', color: '#5f6368',
@@ -472,12 +526,12 @@ export default function LogsPage() {
                       </td>
                     )}
                     {show('provider') && (
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280' }}>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.provider_name ?? <span style={{ color: '#d1d5db' }}>—</span>}
                       </td>
                     )}
                     {show('token') && (
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280' }}>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.key_name ?? <span style={{ color: '#d1d5db' }}>—</span>}
                       </td>
                     )}

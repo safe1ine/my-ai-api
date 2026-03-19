@@ -18,6 +18,7 @@ class KeyCreate(BaseModel):
 class KeyUpdate(BaseModel):
     name: str | None = None
     is_active: bool | None = None
+    token_limit: int | None = None  # None 表示不限制，单位 token
 
 
 class KeyOut(BaseModel):
@@ -25,6 +26,7 @@ class KeyOut(BaseModel):
     name: str
     key: str
     is_active: bool
+    token_limit: int | None
     created_at: str
 
     @classmethod
@@ -34,6 +36,7 @@ class KeyOut(BaseModel):
             name=obj.name,
             key=obj.key,
             is_active=obj.is_active,
+            token_limit=obj.token_limit,
             created_at=obj.created_at.isoformat(),
         )
 

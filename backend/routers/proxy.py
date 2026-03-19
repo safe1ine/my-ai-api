@@ -285,6 +285,14 @@ async def _proxy(request: Request, vendor: str, path: str,
     ptype = ProviderType.openai if vendor == "openai" else ProviderType.anthropic
     provider_list = _pick_providers(db, ptype)
 
+    # 用量上限校验
+    if client_key.token_limit is not None and _should_log(vendor, path):
+        used = db.query(func.sum(ApiLog.total_tokens)).filter(
+            ApiLog.client_key_id == client_key.id
+        ).scalar() or 0
+        if used >= client_key.token_limit:
+            raise HTTPException(status_code=429, detail="Token 用量已达上限")
+
     body = await request.body()
     params = dict(request.query_params)
     do_log = _should_log(vendor, path)

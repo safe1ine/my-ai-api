@@ -21,6 +21,8 @@ export default function KeysPage() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'danger' } | null>(null)
   const [editTarget, setEditTarget] = useState<KeyOut | null>(null)
   const [editName, setEditName] = useState('')
+  const [limitTarget, setLimitTarget] = useState<KeyOut | null>(null)
+  const [limitInput, setLimitInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
@@ -73,6 +75,21 @@ export default function KeysPage() {
       load()
     } catch {
       showToast('操作失败', 'danger')
+    }
+  }
+
+  const handleSetLimit = async () => {
+    if (!limitTarget) return
+    const val = limitInput.trim()
+    // 空字符串或 0 表示不限制
+    const token_limit = val === '' || val === '0' ? null : Math.round(parseFloat(val) * 1_000_000)
+    try {
+      await keysApi.update(limitTarget.id, { token_limit })
+      setLimitTarget(null)
+      load()
+      showToast(token_limit === null ? '已设为不限制' : '用量上限已更新')
+    } catch {
+      showToast('更新失败', 'danger')
     }
   }
 
@@ -211,6 +228,7 @@ export default function KeysPage() {
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>名称</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>Token</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>Token 用量</th>
+                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>用量上限</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>状态</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>创建时间</th>
                 <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0, width: 80 }}>操作</th>
@@ -314,6 +332,22 @@ export default function KeysPage() {
                         </div>
                       )
                     })()}
+                  </td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <div className="d-flex align-items-center gap-1">
+                      <span style={{ fontSize: 13, color: k.token_limit ? '#374151' : '#9ca3af' }}>
+                        {k.token_limit ? `${(k.token_limit / 1_000_000).toFixed(1)} M` : '不限制'}
+                      </span>
+                      <button
+                        onClick={() => { setLimitTarget(k); setLimitInput(k.token_limit ? String(k.token_limit / 1_000_000) : '') }}
+                        title="设置用量上限"
+                        style={{ border: 'none', background: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: 13, padding: '2px 4px', borderRadius: 4 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#6366f1')}
+                        onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}
+                      >
+                        <i className="bi bi-pencil" />
+                      </button>
+                    </div>
                   </td>
                   <td style={{ padding: '14px 20px' }}>
                     <div
@@ -432,6 +466,48 @@ export default function KeysPage() {
           </div>
         </div>
       </div>
+
+      {/* Set Limit Modal */}
+      {limitTarget && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1050 }}
+          onClick={() => setLimitTarget(null)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 16, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="d-flex align-items-center gap-3 mb-3">
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <i className="bi bi-speedometer2" style={{ color: '#3b82f6', fontSize: 18 }} />
+              </div>
+              <h5 className="mb-0 fw-bold" style={{ fontSize: 16 }}>设置用量上限</h5>
+            </div>
+            <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
+              为 <strong style={{ color: '#111' }}>{limitTarget.name}</strong> 设置 Token 用量上限，留空表示不限制。
+            </p>
+            <div className="d-flex align-items-center gap-2 mb-4">
+              <input
+                className="form-control"
+                style={{ borderRadius: 8, fontSize: 14 }}
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="例如：10（即 10M Token）"
+                value={limitInput}
+                onChange={e => setLimitInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSetLimit(); if (e.key === 'Escape') setLimitTarget(null) }}
+                autoFocus
+              />
+              <span style={{ whiteSpace: 'nowrap', fontSize: 14, color: '#6b7280' }}>M Token</span>
+            </div>
+            <div className="d-flex gap-2">
+              <button className="btn flex-grow-1" style={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14 }} onClick={() => setLimitTarget(null)}>取消</button>
+              <button className="btn flex-grow-1" style={{ borderRadius: 8, background: '#6366f1', border: 'none', color: '#fff', fontSize: 14 }} onClick={handleSetLimit}>确认</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirm */}
       {deleteTarget && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { logsApi, LogItem } from '../api'
+import { logsApi, LogItem, providersApi, keysApi } from '../api'
 
 const PAGE_SIZE = 100
 
@@ -270,6 +270,8 @@ export default function LogsPage() {
   const [providerInput, setProviderInput] = useState('')
   const [keyFilter, setKeyFilter] = useState('')
   const [keyInput, setKeyInput] = useState('')
+  const [providerOptions, setProviderOptions] = useState<string[]>([])
+  const [keyOptions, setKeyOptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(loadVisibleCols)
@@ -290,6 +292,10 @@ export default function LogsPage() {
   }
 
   useEffect(() => { load() }, [page, statusFilter, modelFilter, providerFilter, keyFilter])
+  useEffect(() => {
+    providersApi.list().then(ps => setProviderOptions(ps.map(p => p.name)))
+    keysApi.list().then(ks => setKeyOptions(ks.map(k => k.name)))
+  }, [])
 
   const handleSearch = () => {
     setPage(1)
@@ -389,53 +395,35 @@ export default function LogsPage() {
           </button>
         </div>
 
-        <div style={{ flex: 1, minWidth: 140, maxWidth: 200, display: 'flex', gap: 0 }}>
-          <input
-            style={{
-              flex: 1, padding: '5px 12px', fontSize: 13,
-              border: '1px solid #dadce0', borderRight: 'none',
-              borderRadius: '4px 0 0 4px', outline: 'none', background: '#fff',
-            }}
-            placeholder="搜索上游..."
-            value={providerInput}
-            onChange={e => setProviderInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-          />
-          <button
-            onClick={handleSearch}
-            style={{
-              padding: '5px 12px', border: '1px solid #dadce0',
-              borderRadius: '0 4px 4px 0', background: '#fff',
-              color: '#5f6368', cursor: 'pointer', fontSize: 13,
-            }}
-          >
-            <i className="bi bi-search" />
-          </button>
-        </div>
+        <select
+          value={providerFilter}
+          onChange={e => { setProviderFilter(e.target.value); setProviderInput(e.target.value); setPage(1); load(1, statusFilter, modelFilter, e.target.value, keyFilter) }}
+          style={{
+            padding: '5px 12px', fontSize: 13, borderRadius: 4,
+            border: `1px solid ${providerFilter ? '#1a73e8' : '#dadce0'}`,
+            background: providerFilter ? '#e8f0fe' : '#fff',
+            color: providerFilter ? '#1a73e8' : '#3c4043',
+            cursor: 'pointer', outline: 'none', minWidth: 120,
+          }}
+        >
+          <option value="">全部上游</option>
+          {providerOptions.map(name => <option key={name} value={name}>{name}</option>)}
+        </select>
 
-        <div style={{ flex: 1, minWidth: 140, maxWidth: 200, display: 'flex', gap: 0 }}>
-          <input
-            style={{
-              flex: 1, padding: '5px 12px', fontSize: 13,
-              border: '1px solid #dadce0', borderRight: 'none',
-              borderRadius: '4px 0 0 4px', outline: 'none', background: '#fff',
-            }}
-            placeholder="搜索 Token..."
-            value={keyInput}
-            onChange={e => setKeyInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-          />
-          <button
-            onClick={handleSearch}
-            style={{
-              padding: '5px 12px', border: '1px solid #dadce0',
-              borderRadius: '0 4px 4px 0', background: '#fff',
-              color: '#5f6368', cursor: 'pointer', fontSize: 13,
-            }}
-          >
-            <i className="bi bi-search" />
-          </button>
-        </div>
+        <select
+          value={keyFilter}
+          onChange={e => { setKeyFilter(e.target.value); setKeyInput(e.target.value); setPage(1); load(1, statusFilter, modelFilter, providerFilter, e.target.value) }}
+          style={{
+            padding: '5px 12px', fontSize: 13, borderRadius: 4,
+            border: `1px solid ${keyFilter ? '#1a73e8' : '#dadce0'}`,
+            background: keyFilter ? '#e8f0fe' : '#fff',
+            color: keyFilter ? '#1a73e8' : '#3c4043',
+            cursor: 'pointer', outline: 'none', minWidth: 120,
+          }}
+        >
+          <option value="">全部 Token</option>
+          {keyOptions.map(name => <option key={name} value={name}>{name}</option>)}
+        </select>
 
         {hasActiveFilter && (
           <button

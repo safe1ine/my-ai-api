@@ -25,43 +25,37 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#f1f5f9', padding: 16, gap: 16, boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', height: '100vh', background: '#f8f9fa', fontFamily: "'Google Sans', Roboto, sans-serif" }}>
       {/* Sidebar */}
       <nav style={{
-        width: 220,
-        background: 'linear-gradient(175deg, #1a1f35 0%, #0d1220 100%)',
-        borderRadius: 18,
-        padding: '0 10px 16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
+        width: 256,
+        background: '#fff',
+        borderRight: '1px solid #e8eaed',
         flexShrink: 0,
-        alignSelf: 'stretch',
         display: 'flex',
         flexDirection: 'column',
+        paddingTop: 8,
       }}>
         {/* Logo */}
-        <div style={{ padding: '22px 14px 16px', marginBottom: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ padding: '12px 16px 8px', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px' }}>
             <div style={{
-              width: 34, height: 34, borderRadius: 10,
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              width: 40, height: 40, borderRadius: 12,
+              background: 'linear-gradient(135deg, #4285f4 0%, #1a73e8 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(99,102,241,0.5)',
               flexShrink: 0,
             }}>
-              <i className="bi bi-lightning-charge-fill" style={{ fontSize: 16, color: '#fff' }} />
+              <i className="bi bi-lightning-charge-fill" style={{ fontSize: 18, color: '#fff' }} />
             </div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', letterSpacing: 0.2 }}>AI API</div>
-              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>中转站</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#202124', letterSpacing: 0.1 }}>AI API</div>
+              <div style={{ fontSize: 12, color: '#5f6368', fontWeight: 400 }}>中转站</div>
             </div>
           </div>
         </div>
 
-        {/* Divider */}
-        <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)', margin: '0 4px 12px' }} />
-
         {/* Nav items */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ flex: 1, padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {navItems.map(item => {
             const active = isActive(item.to)
             return (
@@ -71,89 +65,64 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  padding: '10px 14px',
-                  gap: 11,
-                  fontSize: 13.5,
-                  fontWeight: active ? 600 : 500,
+                  padding: '10px 16px',
+                  gap: 14,
+                  fontSize: 14,
+                  fontWeight: active ? 600 : 400,
                   cursor: 'pointer',
-                  color: active ? '#f1f5f9' : '#94a3b8',
-                  background: active ? 'rgba(99,102,241,0.18)' : 'transparent',
-                  borderRadius: 11,
+                  color: active ? '#1a73e8' : '#3c4043',
+                  background: active ? '#e8f0fe' : 'transparent',
+                  borderRadius: 24,
                   textDecoration: 'none',
-                  transition: 'all 0.18s ease',
-                  position: 'relative',
-                  overflow: 'hidden',
+                  transition: 'background 0.15s ease',
                 }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f1f3f4' }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
-                {/* Active left accent bar */}
-                {active && (
-                  <span style={{
-                    position: 'absolute', left: 0, top: '20%', bottom: '20%',
-                    width: 3, borderRadius: 2,
-                    background: 'linear-gradient(180deg, #818cf8, #6366f1)',
-                  }} />
-                )}
-                {/* Icon container */}
-                <span style={{
-                  width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: active ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.04)',
-                  transition: 'all 0.18s ease',
-                }}>
-                  <i className={`bi ${item.icon}`} style={{
-                    fontSize: 14,
-                    color: active ? '#818cf8' : '#7c8da6',
-                  }} />
-                </span>
+                <i className={`bi ${item.icon}`} style={{
+                  fontSize: 18,
+                  color: active ? '#1a73e8' : '#5f6368',
+                  width: 20, textAlign: 'center',
+                }} />
                 {item.label}
               </Link>
             )
           })}
         </div>
 
-        {/* Bottom: status + logout */}
-        <div style={{ margin: '8px 4px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Bottom */}
+        <div style={{ padding: '8px 16px 16px', borderTop: '1px solid #e8eaed', marginTop: 8 }}>
           <div style={{
-            padding: '7px 10px', borderRadius: 10,
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.05)',
-            display: 'flex', alignItems: 'center', gap: 7,
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 12px', marginBottom: 4,
           }}>
             <span style={{
-              width: 7, height: 7, borderRadius: '50%', background: '#22c55e',
-              boxShadow: '0 0 6px rgba(34,197,94,0.6)', flexShrink: 0,
+              width: 8, height: 8, borderRadius: '50%', background: '#34a853',
+              boxShadow: '0 0 0 2px rgba(52,168,83,0.2)', flexShrink: 0,
             }} />
-            <span style={{ fontSize: 11.5, color: '#94a3b8', fontWeight: 500 }}>服务运行中</span>
+            <span style={{ fontSize: 12, color: '#5f6368' }}>服务运行中</span>
           </div>
           <button
             onClick={handleLogout}
             style={{
-              display: 'flex', alignItems: 'center', gap: 9,
-              padding: '9px 14px', borderRadius: 11, cursor: 'pointer',
-              background: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
-              color: '#64748b', fontSize: 13, fontWeight: 500,
-              transition: 'all 0.18s', width: '100%',
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 16px', borderRadius: 24, cursor: 'pointer',
+              background: 'transparent', border: 'none',
+              color: '#5f6368', fontSize: 14, fontWeight: 400,
+              transition: 'background 0.15s', width: '100%',
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(239,68,68,0.1)'
-              e.currentTarget.style.color = '#f87171'
-              e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.color = '#64748b'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
-            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f1f3f4'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            <i className="bi bi-box-arrow-left" style={{ fontSize: 14 }} />
+            <i className="bi bi-box-arrow-left" style={{ fontSize: 18, color: '#5f6368', width: 20, textAlign: 'center' }} />
             退出登录
           </button>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main style={{ flex: 1, background: '#fff', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', overflow: 'auto' }}>
-        <div style={{ padding: 24 }}>
+      <main style={{ flex: 1, overflow: 'auto', background: '#f8f9fa' }}>
+        <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
           {children}
         </div>
       </main>

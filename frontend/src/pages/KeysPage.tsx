@@ -145,11 +145,11 @@ export default function KeysPage() {
           style={{
             position: 'fixed', top: 24, right: 24, zIndex: 9999,
             minWidth: 240, maxWidth: 360,
-            background: toast.type === 'success' ? '#dcfce7' : '#fee2e2',
-            border: `1px solid ${toast.type === 'success' ? '#86efac' : '#fca5a5'}`,
-            color: toast.type === 'success' ? '#166534' : '#991b1b',
-            borderRadius: 10, padding: '10px 16px', fontSize: 14,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            background: toast.type === 'success' ? '#e6f4ea' : '#fce8e6',
+            border: `1px solid ${toast.type === 'success' ? '#34a853' : '#ea4335'}`,
+            color: toast.type === 'success' ? '#137333' : '#c5221f',
+            borderRadius: 8, padding: '10px 16px', fontSize: 14,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
             display: 'flex', alignItems: 'center', gap: 8,
           }}
         >
@@ -161,10 +161,10 @@ export default function KeysPage() {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h4 className="fw-bold mb-1">API Token</h4>
-          <p className="text-muted mb-0" style={{ fontSize: 14 }}>管理用于访问 API 的凭证，请妥善保管</p>
+          <h4 style={{ fontSize: 22, fontWeight: 400, color: '#202124', margin: 0 }}>API Token</h4>
+          <p style={{ fontSize: 14, color: '#5f6368', margin: '4px 0 0' }}>管理用于访问 API 的凭证，请妥善保管</p>
         </div>
-        <span className="badge rounded-pill" style={{ background: '#eff6ff', color: '#3b82f6', fontSize: 13, padding: '6px 14px' }}>
+        <span style={{ background: '#e8f0fe', color: '#1a73e8', fontSize: 13, padding: '6px 14px', borderRadius: 20, fontWeight: 500 }}>
           {keys.length} 个 Token
         </span>
       </div>
@@ -173,22 +173,23 @@ export default function KeysPage() {
       <div
         className="mb-4 p-4"
         style={{
-          background: 'linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%)',
-          border: '1px solid #e0e7ff',
-          borderRadius: 12,
+          background: '#fff',
+          border: '1px solid #e8eaed',
+          borderRadius: 8,
+          boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
         }}
       >
         <div className="d-flex align-items-center gap-2 mb-3">
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <i className="bi bi-plus-lg text-white" style={{ fontSize: 16 }} />
           </div>
-          <span className="fw-semibold" style={{ fontSize: 15 }}>新建 Token</span>
+          <span style={{ fontSize: 15, fontWeight: 500, color: '#202124' }}>新建 Token</span>
         </div>
         <div className="d-flex gap-2" style={{ maxWidth: 480 }}>
           <input
             ref={inputRef}
             className="form-control"
-            style={{ borderRadius: 8, borderColor: '#c7d2fe', fontSize: 14 }}
+            style={{ borderRadius: 4, borderColor: '#dadce0', fontSize: 14 }}
             placeholder="输入 Token 名称，如：开发环境、生产服务"
             value={newName}
             onChange={e => setNewName(e.target.value)}
@@ -196,7 +197,7 @@ export default function KeysPage() {
           />
           <button
             className="btn btn-primary px-4"
-            style={{ borderRadius: 8, whiteSpace: 'nowrap', background: '#6366f1', border: 'none' }}
+            style={{ borderRadius: 4, whiteSpace: 'nowrap', background: '#1a73e8', border: 'none', fontWeight: 500 }}
             onClick={handleCreate}
             disabled={creating}
           >
@@ -210,33 +211,33 @@ export default function KeysPage() {
       </div>
 
       {/* Token List */}
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
         {loading ? (
           <div className="d-flex justify-content-center align-items-center p-5">
-            <div className="spinner-border text-primary me-3" style={{ width: 20, height: 20, borderWidth: 2 }} />
-            <span className="text-muted" style={{ fontSize: 14 }}>加载中...</span>
+            <div className="spinner-border me-3" style={{ width: 20, height: 20, borderWidth: 2, color: '#1a73e8' }} />
+            <span style={{ fontSize: 14, color: '#5f6368' }}>加载中...</span>
           </div>
         ) : keys.length === 0 ? (
           <div className="text-center p-5">
-            <i className="bi bi-key" style={{ fontSize: 40, color: '#d1d5db', display: 'block', marginBottom: 12 }} />
-            <div className="text-muted" style={{ fontSize: 14 }}>还没有 Token，新建一个开始使用</div>
+            <i className="bi bi-key" style={{ fontSize: 40, color: '#dadce0', display: 'block', marginBottom: 12 }} />
+            <div style={{ fontSize: 14, color: '#9aa0a6' }}>还没有 Token，新建一个开始使用</div>
           </div>
         ) : (
           <table className="table table-hover mb-0 align-middle">
-            <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+            <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
               <tr>
-                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>名称</th>
-                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>Token</th>
-                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>Token 用量</th>
-                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>用量上限</th>
-                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>状态</th>
-                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>创建时间</th>
-                <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0, width: 80 }}>操作</th>
+                <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 12, color: '#5f6368', border: 0, textTransform: 'uppercase', letterSpacing: 0.4 }}>名称</th>
+                <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 12, color: '#5f6368', border: 0, textTransform: 'uppercase', letterSpacing: 0.4 }}>Token</th>
+                <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 12, color: '#5f6368', border: 0, textTransform: 'uppercase', letterSpacing: 0.4 }}>Token 用量</th>
+                <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 12, color: '#5f6368', border: 0, textTransform: 'uppercase', letterSpacing: 0.4 }}>用量上限</th>
+                <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 12, color: '#5f6368', border: 0, textTransform: 'uppercase', letterSpacing: 0.4 }}>状态</th>
+                <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 12, color: '#5f6368', border: 0, textTransform: 'uppercase', letterSpacing: 0.4 }}>创建时间</th>
+                <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 12, color: '#5f6368', border: 0, width: 80 }}>操作</th>
               </tr>
             </thead>
             <tbody>
               {keys.map(k => (
-                <tr key={k.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+                <tr key={k.id} style={{ borderTop: '1px solid #f8f9fa' }}>
                   <td style={{ padding: '14px 20px' }}>
                     {editTarget?.id === k.id ? (
                       <div className="d-flex align-items-center gap-1">
@@ -262,7 +263,7 @@ export default function KeysPage() {
                           onClick={() => { setEditTarget(k); setEditName(k.name) }}
                           title="修改名称"
                           style={{ border: 'none', background: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: 13, padding: '2px 4px', borderRadius: 4 }}
-                          onMouseEnter={e => (e.currentTarget.style.color = '#6366f1')}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#1a73e8')}
                           onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}
                         >
                           <i className="bi bi-pencil" />
@@ -275,8 +276,8 @@ export default function KeysPage() {
                       <code
                         style={{
                           fontSize: 12,
-                          background: '#f3f4f6',
-                          color: '#374151',
+                          background: '#f8f9fa',
+                          color: '#3c4043',
                           padding: '3px 8px',
                           borderRadius: 6,
                           fontFamily: 'monospace',
@@ -335,14 +336,14 @@ export default function KeysPage() {
                   </td>
                   <td style={{ padding: '14px 20px' }}>
                     <div className="d-flex align-items-center gap-1">
-                      <span style={{ fontSize: 13, color: k.token_limit ? '#374151' : '#9ca3af' }}>
+                      <span style={{ fontSize: 13, color: k.token_limit ? '#3c4043' : '#9ca3af' }}>
                         {k.token_limit ? `${(k.token_limit / 1_000_000).toFixed(1)} M` : '不限制'}
                       </span>
                       <button
                         onClick={() => { setLimitTarget(k); setLimitInput(k.token_limit ? String(k.token_limit / 1_000_000) : '') }}
                         title="设置用量上限"
                         style={{ border: 'none', background: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: 13, padding: '2px 4px', borderRadius: 4 }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#6366f1')}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#1a73e8')}
                         onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}
                       >
                         <i className="bi bi-pencil" />
@@ -355,8 +356,8 @@ export default function KeysPage() {
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
                         padding: '3px 10px', borderRadius: 20, cursor: 'pointer',
-                        background: k.is_active ? '#dcfce7' : '#f3f4f6',
-                        color: k.is_active ? '#16a34a' : '#6b7280',
+                        background: k.is_active ? '#e6f4ea' : '#f1f3f4',
+                        color: k.is_active ? '#137333' : '#5f6368',
                         fontSize: 12, fontWeight: 500, userSelect: 'none',
                         transition: 'all 0.2s',
                       }}
@@ -398,10 +399,10 @@ export default function KeysPage() {
       {/* Created Key Modal */}
       <div className="modal fade" id="createKeyModal" tabIndex={-1} data-bs-backdrop="static">
         <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content" style={{ borderRadius: 16, border: 'none', overflow: 'hidden' }}>
-            <div style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', padding: '24px 24px 20px' }}>
+          <div className="modal-content" style={{ borderRadius: 8, border: 'none', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #1557b0 100%)', padding: '24px 24px 20px' }}>
               <div className="d-flex align-items-center gap-3">
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 8, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="bi bi-check-lg text-white" style={{ fontSize: 22 }} />
                 </div>
                 <div>
@@ -424,7 +425,7 @@ export default function KeysPage() {
               {createdKey && (
                 <div
                   style={{
-                    background: '#f8faff', border: '1px solid #e0e7ff',
+                    background: '#f8f9fa', border: '1px solid #e8eaed',
                     borderRadius: 10, padding: 14,
                     display: 'flex', alignItems: 'center', gap: 10,
                   }}
@@ -443,7 +444,7 @@ export default function KeysPage() {
                       flexShrink: 0, border: 'none', borderRadius: 8,
                       padding: '8px 12px', cursor: 'pointer', fontSize: 13,
                       fontWeight: 500, transition: 'all 0.2s',
-                      background: copied ? '#dcfce7' : '#6366f1',
+                      background: copied ? '#dcfce7' : '#1a73e8',
                       color: copied ? '#16a34a' : '#fff',
                     }}
                   >
@@ -456,7 +457,7 @@ export default function KeysPage() {
             <div className="modal-footer border-0 pt-0 px-4 pb-4">
               <button
                 className="btn w-100"
-                style={{ background: '#6366f1', color: '#fff', borderRadius: 8, padding: '10px', fontWeight: 500 }}
+                style={{ background: '#1a73e8', color: '#fff', borderRadius: 8, padding: '10px', fontWeight: 500 }}
                 data-bs-dismiss="modal"
                 onClick={() => setCreatedKey(null)}
               >
@@ -474,7 +475,7 @@ export default function KeysPage() {
           onClick={() => setLimitTarget(null)}
         >
           <div
-            style={{ background: '#fff', borderRadius: 16, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            style={{ background: '#fff', borderRadius: 8, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="d-flex align-items-center gap-3 mb-3">
@@ -502,8 +503,8 @@ export default function KeysPage() {
               <span style={{ whiteSpace: 'nowrap', fontSize: 14, color: '#6b7280' }}>M Token</span>
             </div>
             <div className="d-flex gap-2">
-              <button className="btn flex-grow-1" style={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14 }} onClick={() => setLimitTarget(null)}>取消</button>
-              <button className="btn flex-grow-1" style={{ borderRadius: 8, background: '#6366f1', border: 'none', color: '#fff', fontSize: 14 }} onClick={handleSetLimit}>确认</button>
+              <button className="btn flex-grow-1" style={{ borderRadius: 8, border: '1px solid #e8eaed', fontSize: 14 }} onClick={() => setLimitTarget(null)}>取消</button>
+              <button className="btn flex-grow-1" style={{ borderRadius: 8, background: '#1a73e8', border: 'none', color: '#fff', fontSize: 14 }} onClick={handleSetLimit}>确认</button>
             </div>
           </div>
         </div>
@@ -520,7 +521,7 @@ export default function KeysPage() {
           onClick={() => setDeleteTarget(null)}
         >
           <div
-            style={{ background: '#fff', borderRadius: 16, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            style={{ background: '#fff', borderRadius: 8, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="d-flex align-items-center gap-3 mb-3">
@@ -535,7 +536,7 @@ export default function KeysPage() {
             <div className="d-flex gap-2">
               <button
                 className="btn flex-grow-1"
-                style={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14 }}
+                style={{ borderRadius: 8, border: '1px solid #e8eaed', fontSize: 14 }}
                 onClick={() => setDeleteTarget(null)}
               >
                 取消

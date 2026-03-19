@@ -62,10 +62,10 @@ function StatusDot({ status, errorMessage }: { status: 'success' | 'error'; erro
     >
       <span style={{
         width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-        background: ok ? '#22c55e' : '#ef4444',
-        boxShadow: `0 0 0 2px ${ok ? '#dcfce7' : '#fee2e2'}`,
+        background: ok ? '#34a853' : '#ea4335',
+        boxShadow: `0 0 0 2px ${ok ? '#e6f4ea' : '#fce8e6'}`,
       }} />
-      <span style={{ fontSize: 12, color: ok ? '#16a34a' : '#dc2626', fontWeight: 500 }}>
+      <span style={{ fontSize: 12, color: ok ? '#137333' : '#c5221f', fontWeight: 500 }}>
         {ok ? 'OK' : 'Err'}
       </span>
     </span>
@@ -74,7 +74,7 @@ function StatusDot({ status, errorMessage }: { status: 'success' | 'error'; erro
 
 function LatencyBadge({ ms }: { ms: number }) {
   const s = ms / 1000
-  const color = ms > 10000 ? '#ef4444' : ms > 5000 ? '#f59e0b' : '#6b7280'
+  const color = ms > 10000 ? '#ea4335' : ms > 5000 ? '#f9ab00' : '#5f6368'
   return <span style={{ color, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{s.toFixed(1)}s</span>
 }
 
@@ -142,15 +142,15 @@ function ColPicker({ visible, onChange }: {
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           padding: '5px 12px', borderRadius: 7, fontSize: 13, cursor: 'pointer',
-          border: `1px solid ${open ? '#6366f1' : '#e5e7eb'}`,
-          background: open ? '#f0f0ff' : '#fff',
-          color: open ? '#6366f1' : '#374151',
+          border: `1px solid ${open ? '#1a73e8' : '#dadce0'}`,
+          background: open ? '#e8f0fe' : '#fff',
+          color: open ? '#1a73e8' : '#3c4043',
         }}
       >
         <i className="bi bi-layout-three-columns" style={{ fontSize: 13 }} />
         列
         <span style={{
-          fontSize: 11, background: '#e0e7ff', color: '#4f46e5',
+          fontSize: 11, background: '#e8f0fe', color: '#1a73e8',
           borderRadius: 10, padding: '0 5px', fontWeight: 600, lineHeight: '18px',
         }}>{activeCount}</span>
       </button>
@@ -174,7 +174,7 @@ function ColPicker({ visible, onChange }: {
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '6px 14px', cursor: 'pointer',
                   fontSize: 13, color: '#374151',
-                  background: checked ? '#f5f3ff' : 'transparent',
+                  background: checked ? '#e8f0fe' : 'transparent',
                   transition: 'background 0.1s',
                 }}
               >
@@ -227,11 +227,11 @@ function Pagination({ page, total, pageSize, onChange }: { page: number; total: 
 
   const btnStyle = (active: boolean, disabled?: boolean): React.CSSProperties => ({
     minWidth: 32, height: 32, padding: '0 6px',
-    border: `1px solid ${active ? '#6366f1' : '#e5e7eb'}`,
-    borderRadius: 7, background: active ? '#6366f1' : '#fff',
-    color: active ? '#fff' : disabled ? '#d1d5db' : '#374151',
+    border: `1px solid ${active ? '#1a73e8' : '#dadce0'}`,
+    borderRadius: 4, background: active ? '#1a73e8' : '#fff',
+    color: active ? '#fff' : disabled ? '#dadce0' : '#3c4043',
     fontSize: 13, cursor: disabled ? 'default' : 'pointer',
-    fontWeight: active ? 600 : 400,
+    fontWeight: active ? 500 : 400,
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   })
 
@@ -318,10 +318,10 @@ export default function LogsPage() {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h4 className="fw-bold mb-1">Logs</h4>
-          <p className="text-muted mb-0" style={{ fontSize: 14 }}>查看所有 API 调用记录与详情</p>
+          <h4 style={{ fontSize: 22, fontWeight: 400, color: '#202124', margin: 0 }}>Logs</h4>
+          <p style={{ fontSize: 14, color: '#5f6368', margin: '4px 0 0' }}>查看所有 API 调用记录与详情</p>
         </div>
-        <span className="badge rounded-pill" style={{ background: '#eff6ff', color: '#3b82f6', fontSize: 13, padding: '6px 14px' }}>
+        <span style={{ background: '#e8f0fe', color: '#1a73e8', fontSize: 13, padding: '6px 14px', borderRadius: 20, fontWeight: 500 }}>
           {total.toLocaleString()} 条记录
         </span>
       </div>
@@ -330,13 +330,14 @@ export default function LogsPage() {
       <div style={{
         display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap',
         marginBottom: 16, padding: '12px 16px',
-        background: '#f9fafb', borderRadius: 10, border: '1px solid #e5e7eb',
+        background: '#fff', borderRadius: 8, border: '1px solid #e8eaed',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
       }}>
         <div style={{ display: 'flex', gap: 4 }}>
           {[
             { val: '', label: '全部' },
-            { val: 'success', label: '成功', color: '#16a34a', bg: '#dcfce7' },
-            { val: 'error', label: '失败', color: '#dc2626', bg: '#fee2e2' },
+            { val: 'success', label: '成功', color: '#137333', bg: '#e6f4ea' },
+            { val: 'error', label: '失败', color: '#c5221f', bg: '#fce8e6' },
           ].map(opt => {
             const active = statusFilter === opt.val
             return (
@@ -344,11 +345,11 @@ export default function LogsPage() {
                 key={opt.val}
                 onClick={() => handleStatus(opt.val)}
                 style={{
-                  padding: '5px 14px', borderRadius: 7, fontSize: 13, cursor: 'pointer',
-                  border: `1px solid ${active ? (opt.color ?? '#6366f1') : '#e5e7eb'}`,
-                  background: active ? (opt.bg ?? '#6366f1') : '#fff',
-                  color: active ? (opt.color ?? '#fff') : '#374151',
-                  fontWeight: active ? 600 : 400, transition: 'all 0.15s',
+                  padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+                  border: `1px solid ${active ? (opt.color ?? '#1a73e8') : '#dadce0'}`,
+                  background: active ? (opt.bg ?? '#e8f0fe') : '#fff',
+                  color: active ? (opt.color ?? '#1a73e8') : '#3c4043',
+                  fontWeight: active ? 500 : 400, transition: 'all 0.15s',
                 }}
               >
                 {opt.label}
@@ -362,8 +363,8 @@ export default function LogsPage() {
             ref={searchRef}
             style={{
               flex: 1, padding: '5px 12px', fontSize: 13,
-              border: '1px solid #e5e7eb', borderRight: 'none',
-              borderRadius: '7px 0 0 7px', outline: 'none', background: '#fff',
+              border: '1px solid #dadce0', borderRight: 'none',
+              borderRadius: '4px 0 0 4px', outline: 'none', background: '#fff',
             }}
             placeholder="搜索模型名称..."
             value={modelInput}
@@ -373,9 +374,9 @@ export default function LogsPage() {
           <button
             onClick={handleSearch}
             style={{
-              padding: '5px 12px', border: '1px solid #e5e7eb',
-              borderRadius: '0 7px 7px 0', background: '#fff',
-              color: '#6b7280', cursor: 'pointer', fontSize: 13,
+              padding: '5px 12px', border: '1px solid #dadce0',
+              borderRadius: '0 4px 4px 0', background: '#fff',
+              color: '#5f6368', cursor: 'pointer', fontSize: 13,
             }}
           >
             <i className="bi bi-search" />
@@ -386,8 +387,8 @@ export default function LogsPage() {
           <button
             onClick={() => { setStatusFilter(''); setModelFilter(''); setModelInput(''); setPage(1) }}
             style={{
-              padding: '5px 12px', borderRadius: 7, fontSize: 13, cursor: 'pointer',
-              border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280',
+              padding: '5px 12px', borderRadius: 20, fontSize: 13, cursor: 'pointer',
+              border: '1px solid #dadce0', background: '#fff', color: '#5f6368',
               display: 'flex', alignItems: 'center', gap: 5,
             }}
           >
@@ -401,14 +402,14 @@ export default function LogsPage() {
       </div>
 
       {/* Table */}
-      <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e8eaed', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
         <table className="table mb-0" style={{ fontSize: 13 }}>
-          <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+          <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
             <tr>
               {COL_DEFS.filter(c => show(c.key)).map(col => (
                 <th key={col.key} style={{
-                  padding: '10px 14px', fontWeight: 600, fontSize: 12,
-                  color: '#6b7280', border: 0, width: col.w,
+                  padding: '10px 14px', fontWeight: 500, fontSize: 12,
+                  color: '#5f6368', border: 0, width: col.w,
                   textAlign: col.right ? 'right' : 'left',
                   textTransform: 'uppercase', letterSpacing: 0.4,
                   whiteSpace: 'nowrap',
@@ -423,8 +424,8 @@ export default function LogsPage() {
             {loading ? (
               <tr>
                 <td colSpan={colSpan} style={{ padding: '48px 0', textAlign: 'center' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: '#9ca3af' }}>
-                    <div className="spinner-border" style={{ width: 18, height: 18, borderWidth: 2, color: '#6366f1' }} />
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: '#9aa0a6' }}>
+                    <div className="spinner-border" style={{ width: 18, height: 18, borderWidth: 2, color: '#1a73e8' }} />
                     <span style={{ fontSize: 14 }}>加载中...</span>
                   </div>
                 </td>

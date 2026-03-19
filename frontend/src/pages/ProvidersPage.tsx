@@ -73,21 +73,22 @@ function ColPicker({ visible, onChange }: { visible: Set<ColKey>; onChange: (nex
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           padding: '5px 12px', borderRadius: 7, fontSize: 13, cursor: 'pointer',
-          border: `1px solid ${open ? '#6366f1' : '#e5e7eb'}`,
-          background: open ? '#f0f0ff' : '#fff',
-          color: open ? '#6366f1' : '#374151',
+          border: `1px solid ${open ? '#1a73e8' : '#dadce0'}`,
+          background: open ? '#e8f0fe' : '#fff',
+          color: open ? '#1a73e8' : '#3c4043',
+
         }}
       >
         <i className="bi bi-layout-three-columns" style={{ fontSize: 13 }} />
         列
-        <span style={{ fontSize: 11, background: '#e0e7ff', color: '#4f46e5', borderRadius: 10, padding: '0 5px', fontWeight: 600, lineHeight: '18px' }}>
+        <span style={{ fontSize: 11, background: '#e8f0fe', color: '#1a73e8', borderRadius: 10, padding: '0 5px', fontWeight: 600, lineHeight: '18px' }}>
           {visible.size}
         </span>
       </button>
       {open && (
         <div style={{
           position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 200,
-          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+          background: '#fff', border: '1px solid #e8eaed', borderRadius: 10,
           boxShadow: '0 8px 24px rgba(0,0,0,0.10)', padding: '8px 0', minWidth: 160,
         }}>
           <div style={{ padding: '4px 14px 8px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -98,13 +99,13 @@ function ColPicker({ visible, onChange }: { visible: Set<ColKey>; onChange: (nex
             return (
               <label key={col.key} style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#374151',
-                background: checked ? '#f5f3ff' : 'transparent', transition: 'background 0.1s',
+                padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#3c4043',
+                background: checked ? '#e8f0fe' : 'transparent', transition: 'background 0.1s',
               }}>
                 <span style={{
                   width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                  border: `1.5px solid ${checked ? '#6366f1' : '#d1d5db'}`,
-                  background: checked ? '#6366f1' : '#fff',
+                  border: `1.5px solid ${checked ? '#1a73e8' : '#d1d5db'}`,
+                  background: checked ? '#1a73e8' : '#fff',
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'all 0.1s',
                 }}>
@@ -431,8 +432,8 @@ export default function ProvidersPage() {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h4 className="fw-bold mb-1">Upstream</h4>
-          <p className="text-muted mb-0" style={{ fontSize: 14 }}>配置 OpenAI / Anthropic 等上游 API 供应商</p>
+          <h4 style={{ fontSize: 22, fontWeight: 400, color: '#202124', margin: 0 }}>Upstream</h4>
+          <p style={{ fontSize: 14, color: '#5f6368', margin: '4px 0 0' }}>配置 OpenAI / Anthropic 等上游 API 供应商</p>
         </div>
         <div className="d-flex align-items-center gap-2">
           <span className="badge rounded-pill" style={{ background: '#eff6ff', color: '#3b82f6', fontSize: 13, padding: '6px 14px' }}>
@@ -441,7 +442,7 @@ export default function ProvidersPage() {
           <ColPicker visible={visibleCols} onChange={updateCols} />
           <button
             className="btn"
-            style={{ background: '#6366f1', color: '#fff', borderRadius: 8, fontSize: 14, padding: '7px 16px', border: 'none' }}
+            style={{ background: '#1a73e8', color: '#fff', borderRadius: 8, fontSize: 14, padding: '7px 16px', border: 'none' }}
             onClick={openCreate}
           >
             <i className="bi bi-plus-lg me-1" />新增
@@ -451,20 +452,20 @@ export default function ProvidersPage() {
 
       {/* List - Grouped by Type */}
       {loading ? (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden' }}>
           <div className="d-flex justify-content-center align-items-center p-5">
-            <div className="spinner-border me-3" style={{ width: 20, height: 20, borderWidth: 2, color: '#6366f1' }} />
+            <div className="spinner-border me-3" style={{ width: 20, height: 20, borderWidth: 2, color: '#1a73e8' }} />
             <span className="text-muted" style={{ fontSize: 14 }}>加载中...</span>
           </div>
         </div>
       ) : providers.length === 0 ? (
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden' }}>
           <div className="text-center p-5">
             <i className="bi bi-cloud-slash" style={{ fontSize: 40, color: '#d1d5db', display: 'block', marginBottom: 12 }} />
             <div className="text-muted" style={{ fontSize: 14 }}>还没有上游配置</div>
             <button
               className="btn btn-sm mt-3"
-              style={{ background: '#6366f1', color: '#fff', borderRadius: 8, border: 'none' }}
+              style={{ background: '#1a73e8', color: '#fff', borderRadius: 8, border: 'none' }}
               onClick={openCreate}
             >
               <i className="bi bi-plus-lg me-1" />立即添加
@@ -481,8 +482,8 @@ export default function ProvidersPage() {
             const tc = TYPE_CONFIG.openai
             if (openaiProviders.length === 0) return null
             return (
-              <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ 
+              <div style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{
                   background: 'linear-gradient(135deg, #f0fdf8 0%, #ecfdf5 100%)',
                   padding: '14px 20px',
                   borderBottom: '1px solid #d1fae5',
@@ -508,12 +509,12 @@ export default function ProvidersPage() {
                   </span>
                 </div>
                 <table className="table table-hover mb-0 align-middle">
-                  <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                  <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
                     <tr>
                       {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
-                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>{c.label}</th>
+                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>{c.label}</th>
                       ))}
-                      <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>操作</th>
+                      <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -524,7 +525,7 @@ export default function ProvidersPage() {
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                               width: 26, height: 26, borderRadius: 8,
-                              background: '#f3f4f6', color: '#374151',
+                              background: '#f8f9fa', color: '#3c4043',
                               fontSize: 13, fontWeight: 700,
                             }}>
                               {p.priority ?? 5}
@@ -540,7 +541,7 @@ export default function ProvidersPage() {
                           <td style={{ padding: '14px 20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <code style={{
-                                fontSize: 12, background: '#f3f4f6', color: '#374151',
+                                fontSize: 12, background: '#f8f9fa', color: '#3c4043',
                                 padding: '3px 8px', borderRadius: 6, fontFamily: 'monospace',
                                 maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}>
@@ -649,7 +650,7 @@ export default function ProvidersPage() {
                         )}
                         <td style={{ padding: '14px 20px' }}>
                           <div className="d-flex gap-1">
-                            <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#6366f1" />
+                            <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#1a73e8" />
                             <IconBtn
                               icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
                               title="测试连通性"
@@ -676,8 +677,8 @@ export default function ProvidersPage() {
             const tc = TYPE_CONFIG.anthropic
             if (anthropicProviders.length === 0) return null
             return (
-              <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ 
+              <div style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{
                   background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
                   padding: '14px 20px',
                   borderBottom: '1px solid #fde68a',
@@ -703,12 +704,12 @@ export default function ProvidersPage() {
                   </span>
                 </div>
                 <table className="table table-hover mb-0 align-middle">
-                  <thead style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                  <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
                     <tr>
                       {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
-                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>{c.label}</th>
+                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>{c.label}</th>
                       ))}
-                      <th style={{ padding: '12px 20px', fontWeight: 600, fontSize: 13, color: '#374151', border: 0 }}>操作</th>
+                      <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -719,7 +720,7 @@ export default function ProvidersPage() {
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                               width: 26, height: 26, borderRadius: 8,
-                              background: '#f3f4f6', color: '#374151',
+                              background: '#f8f9fa', color: '#3c4043',
                               fontSize: 13, fontWeight: 700,
                             }}>
                               {p.priority ?? 5}
@@ -735,7 +736,7 @@ export default function ProvidersPage() {
                           <td style={{ padding: '14px 20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <code style={{
-                                fontSize: 12, background: '#f3f4f6', color: '#374151',
+                                fontSize: 12, background: '#f8f9fa', color: '#3c4043',
                                 padding: '3px 8px', borderRadius: 6, fontFamily: 'monospace',
                                 maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}>
@@ -844,7 +845,7 @@ export default function ProvidersPage() {
                         )}
                         <td style={{ padding: '14px 20px' }}>
                           <div className="d-flex gap-1">
-                            <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#6366f1" />
+                            <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#1a73e8" />
                             <IconBtn
                               icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
                               title="测试连通性"
@@ -868,8 +869,8 @@ export default function ProvidersPage() {
       {/* Provider Form Modal */}
       <div className="modal fade" id="providerModal" tabIndex={-1} ref={modalRef}>
         <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content" style={{ borderRadius: 16, border: 'none', overflow: 'hidden' }}>
-            <div style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', padding: '20px 24px' }}>
+          <div className="modal-content" style={{ borderRadius: 8, border: 'none', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #1557b0 100%)', padding: '20px 24px' }}>
               <div className="d-flex align-items-center justify-content-between">
                 <div className="d-flex align-items-center gap-3">
                   <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -907,14 +908,14 @@ export default function ProvidersPage() {
                         onClick={() => setForm(f => ({ ...f, type: t }))}
                         style={{
                           flex: 1, padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                          border: `2px solid ${active ? tc.color : '#e5e7eb'}`,
+                          border: `2px solid ${active ? tc.color : '#e8eaed'}`,
                           background: active ? tc.bg : '#fff',
                           display: 'flex', alignItems: 'center', gap: 8,
                           transition: 'all 0.15s',
                         }}
                       >
                         <i className={`bi ${tc.icon}`} style={{ color: tc.color, fontSize: 16 }} />
-                        <span style={{ fontWeight: 600, fontSize: 14, color: active ? tc.color : '#374151' }}>{tc.label}</span>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: active ? tc.color : '#3c4043' }}>{tc.label}</span>
                       </div>
                     )
                   })}
@@ -965,13 +966,13 @@ export default function ProvidersPage() {
                   <input
                     type="range"
                     min={1} max={10} step={1}
-                    style={{ flex: 1, accentColor: '#6366f1' }}
+                    style={{ flex: 1, accentColor: '#1a73e8' }}
                     value={form.priority ?? 5}
                     onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) }))}
                   />
                   <span style={{
                     minWidth: 32, height: 32, borderRadius: 8,
-                    background: '#eff0ff', color: '#6366f1',
+                    background: '#e8f0fe', color: '#1a73e8',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 700, fontSize: 15,
                   }}>
@@ -984,8 +985,8 @@ export default function ProvidersPage() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 14px', borderRadius: 10, cursor: 'pointer', marginBottom: 12,
-                  border: `1px solid ${form.skip_health_check ? '#fbbf24' : '#e5e7eb'}`,
-                  background: form.skip_health_check ? '#fffbeb' : '#f9fafb',
+                  border: `1px solid ${form.skip_health_check ? '#fbbf24' : '#e8eaed'}`,
+                  background: form.skip_health_check ? '#fffbeb' : '#f8f9fa',
                   userSelect: 'none', transition: 'all 0.15s',
                 }}
               >
@@ -1013,8 +1014,8 @@ export default function ProvidersPage() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                  border: `1px solid ${form.is_active ? '#86efac' : '#e5e7eb'}`,
-                  background: form.is_active ? '#f0fdf4' : '#f9fafb',
+                  border: `1px solid ${form.is_active ? '#86efac' : '#e8eaed'}`,
+                  background: form.is_active ? '#f0fdf4' : '#f8f9fa',
                   userSelect: 'none', transition: 'all 0.15s',
                 }}
               >
@@ -1036,14 +1037,14 @@ export default function ProvidersPage() {
             <div className="px-4 pb-4 d-flex gap-2">
               <button
                 className="btn flex-grow-1"
-                style={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14 }}
+                style={{ borderRadius: 8, border: '1px solid #e8eaed', fontSize: 14 }}
                 data-bs-dismiss="modal"
               >
                 取消
               </button>
               <button
                 className="btn flex-grow-1"
-                style={{ borderRadius: 8, background: '#6366f1', color: '#fff', border: 'none', fontSize: 14 }}
+                style={{ borderRadius: 8, background: '#1a73e8', color: '#fff', border: 'none', fontSize: 14 }}
                 onClick={handleSubmit}
                 disabled={saving}
               >
@@ -1058,8 +1059,8 @@ export default function ProvidersPage() {
       {/* Models Modal */}
       <div className="modal fade" id="modelsModal" tabIndex={-1}>
         <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-          <div className="modal-content" style={{ borderRadius: 16, border: 'none', overflow: 'hidden' }}>
-            <div style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="modal-content" style={{ borderRadius: 8, border: 'none', overflow: 'hidden' }}>
+            <div style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h5 className="mb-0 fw-bold" style={{ fontSize: 15 }}>可用模型</h5>
                 <p className="mb-0 text-muted" style={{ fontSize: 13 }}>{modelsModal?.name}</p>
@@ -1078,7 +1079,7 @@ export default function ProvidersPage() {
             <div className="modal-body p-4" style={{ maxHeight: 420, overflowY: 'auto' }}>
               {modelsModal?.loading ? (
                 <div className="d-flex justify-content-center align-items-center py-4">
-                  <div className="spinner-border me-3" style={{ width: 20, height: 20, borderWidth: 2, color: '#6366f1' }} />
+                  <div className="spinner-border me-3" style={{ width: 20, height: 20, borderWidth: 2, color: '#1a73e8' }} />
                   <span className="text-muted" style={{ fontSize: 14 }}>获取模型列表...</span>
                 </div>
               ) : modelsModal?.models.length === 0 ? (
@@ -1087,9 +1088,9 @@ export default function ProvidersPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
                   {modelsModal?.models.map(m => (
                     <div key={m} style={{
-                      background: '#f8faff', border: '1px solid #e0e7ff',
+                      background: '#f8f9fa', border: '1px solid #e8eaed',
                       borderRadius: 8, padding: '7px 12px',
-                      fontSize: 12, fontFamily: 'monospace', color: '#374151',
+                      fontSize: 12, fontFamily: 'monospace', color: '#3c4043',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }} title={m}>
                       {m}
@@ -1098,10 +1099,10 @@ export default function ProvidersPage() {
                 </div>
               )}
             </div>
-            <div style={{ padding: '12px 24px', borderTop: '1px solid #e5e7eb' }}>
+            <div style={{ padding: '12px 24px', borderTop: '1px solid #e8eaed' }}>
               <button
                 className="btn w-100"
-                style={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14 }}
+                style={{ borderRadius: 8, border: '1px solid #e8eaed', fontSize: 14 }}
                 data-bs-dismiss="modal"
               >
                 关闭
@@ -1121,7 +1122,7 @@ export default function ProvidersPage() {
           onClick={() => setDeleteTarget(null)}
         >
           <div
-            style={{ background: '#fff', borderRadius: 16, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            style={{ background: '#fff', borderRadius: 8, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="d-flex align-items-center gap-3 mb-3">
@@ -1136,7 +1137,7 @@ export default function ProvidersPage() {
             <div className="d-flex gap-2">
               <button
                 className="btn flex-grow-1"
-                style={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14 }}
+                style={{ borderRadius: 8, border: '1px solid #e8eaed', fontSize: 14 }}
                 onClick={() => setDeleteTarget(null)}
               >
                 取消

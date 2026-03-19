@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { statsApi, StatsOverview, UsagePoint, ModelStat, ApiKeyStat } from '../api'
 
-const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9', '#f97316']
+const CHART_COLORS = ['#1a73e8', '#34a853', '#f9ab00', '#ea4335', '#9334e6', '#00bcd4', '#ff7043']
 
 function fmtNum(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -44,19 +44,20 @@ function StatCard({
 }) {
   return (
     <div style={{
-      background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14,
-      padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 16,
+      background: '#fff', border: '1px solid #e8eaed', borderRadius: 8,
+      padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
     }}>
       <div style={{
-        width: 48, height: 48, borderRadius: 12, background: bg, flexShrink: 0,
+        width: 44, height: 44, borderRadius: 12, background: bg, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <i className={`bi ${icon}`} style={{ fontSize: 20, color }} />
       </div>
       <div>
-        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 3, fontWeight: 500 }}>{label}</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{value}</div>
-        {sub && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{sub}</div>}
+        <div style={{ fontSize: 12, color: '#5f6368', marginBottom: 4, fontWeight: 500, letterSpacing: 0.3 }}>{label}</div>
+        <div style={{ fontSize: 22, fontWeight: 400, color: '#202124', lineHeight: 1 }}>{value}</div>
+        {sub && <div style={{ fontSize: 12, color: '#80868b', marginTop: 4 }}>{sub}</div>}
       </div>
     </div>
   )
@@ -110,24 +111,24 @@ function ChartTooltip({ active, payload, label }: any) {
 
 function Card({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, overflow: 'hidden' }}>
+    <div style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
       <div style={{
-        padding: '14px 20px', borderBottom: '1px solid #f3f4f6',
+        padding: '16px 24px', borderBottom: '1px solid #e8eaed',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>{title}</span>
+        <span style={{ fontWeight: 500, fontSize: 14, color: '#202124', letterSpacing: 0.1 }}>{title}</span>
         {action}
       </div>
-      <div style={{ padding: 20 }}>{children}</div>
+      <div style={{ padding: '20px 24px' }}>{children}</div>
     </div>
   )
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div style={{ textAlign: 'center', padding: '40px 0', color: '#d1d5db' }}>
+    <div style={{ textAlign: 'center', padding: '40px 0', color: '#dadce0' }}>
       <i className="bi bi-bar-chart" style={{ fontSize: 36, display: 'block', marginBottom: 10 }} />
-      <span style={{ fontSize: 14, color: '#9ca3af' }}>{text}</span>
+      <span style={{ fontSize: 14, color: '#9aa0a6' }}>{text}</span>
     </div>
   )
 }
@@ -165,19 +166,19 @@ export default function StatsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
-      <div>
-        <h4 className="fw-bold mb-1">统计</h4>
-        <p className="text-muted mb-0" style={{ fontSize: 14 }}>API 使用情况总览</p>
+      <div style={{ marginBottom: 4 }}>
+        <h4 style={{ fontSize: 22, fontWeight: 400, color: '#202124', margin: 0 }}>统计</h4>
+        <p style={{ fontSize: 14, color: '#5f6368', margin: '4px 0 0' }}>API 使用情况总览</p>
       </div>
 
       {/* Overview cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
         <StatCard label="总请求数" value={fmtNum(overview?.total_requests ?? 0)}
           sub={`成功 ${fmtNum(overview?.success_requests ?? 0)} / 失败 ${fmtNum(overview?.error_requests ?? 0)}`}
-          icon="bi-arrow-repeat" color="#6366f1" bg="#eff0ff" />
+          icon="bi-arrow-repeat" color="#1a73e8" bg="#e8f0fe" />
         <StatCard label="成功率" value={`${successRate}%`}
           sub={`${overview?.error_requests ?? 0} 次错误`}
-          icon="bi-check-circle" color="#10b981" bg="#ecfdf5" />
+          icon="bi-check-circle" color="#34a853" bg="#e6f4ea" />
         <StatCard label="输入 Tokens" value={fmtNum(overview?.total_input_tokens ?? 0)}
           sub={(() => {
             const read = overview?.total_cache_read_tokens ?? 0
@@ -186,9 +187,9 @@ export default function StatsPage() {
             const rate = Math.floor(read / input * 1000) / 10
             return `缓存命中率 ${rate}%`
           })()}
-          icon="bi-arrow-right-circle" color="#0ea5e9" bg="#f0f9ff" />
+          icon="bi-arrow-right-circle" color="#1a73e8" bg="#e8f0fe" />
         <StatCard label="输出 Tokens" value={fmtNum(overview?.total_output_tokens ?? 0)}
-          icon="bi-arrow-left-circle" color="#f59e0b" bg="#fffbeb" />
+          icon="bi-arrow-left-circle" color="#f9ab00" bg="#fef7e0" />
       </div>
 
       {/* Trend charts — single card, shared granularity toggle */}
@@ -198,11 +199,11 @@ export default function StatsPage() {
           <div style={{ display: 'flex', gap: 4 }}>
             {([['day', '日'], ['week', '周'], ['month', '月']] as const).map(([g, label]) => (
               <button key={g} onClick={() => setGranularity(g)} style={{
-                padding: '4px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer',
-                border: `1px solid ${granularity === g ? '#6366f1' : '#e5e7eb'}`,
-                background: granularity === g ? '#6366f1' : '#fff',
-                color: granularity === g ? '#fff' : '#6b7280',
-                fontWeight: granularity === g ? 600 : 400,
+                padding: '5px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+                border: `1px solid ${granularity === g ? '#1a73e8' : '#dadce0'}`,
+                background: granularity === g ? '#e8f0fe' : '#fff',
+                color: granularity === g ? '#1a73e8' : '#5f6368',
+                fontWeight: granularity === g ? 500 : 400,
                 transition: 'all 0.15s',
               }}>{label}</button>
             ))}
@@ -236,7 +237,7 @@ export default function StatsPage() {
                     <XAxis {...xAxisProps} />
                     <YAxis tickFormatter={fmtNum} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="input_tokens" name="输入" fill="#6366f1" opacity={0.85} radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="input_tokens" name="输入" fill="#1a73e8" opacity={0.85} radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -248,7 +249,7 @@ export default function StatsPage() {
                     <XAxis {...xAxisProps} />
                     <YAxis tickFormatter={fmtNum} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="output_tokens" name="输出" fill="#10b981" opacity={0.85} radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="output_tokens" name="输出" fill="#34a853" opacity={0.85} radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -260,7 +261,7 @@ export default function StatsPage() {
                     <XAxis {...xAxisProps} />
                     <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="requests" name="请求数" fill="#0ea5e9" opacity={0.85} radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="requests" name="请求数" fill="#1a73e8" opacity={0.85} radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -272,8 +273,8 @@ export default function StatsPage() {
                     <XAxis {...xAxisProps} />
                     <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<ChartTooltip />} formatter={(v: number) => `${v}%`} />
-                    <Bar dataKey="success_rate" name="成功率" fill="#10b981" opacity={0.85} stackId="s" />
-                    <Bar dataKey="error_rate" name="失败率" fill="#ef4444" opacity={0.85} stackId="s" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="success_rate" name="成功率" fill="#34a853" opacity={0.85} stackId="s" />
+                    <Bar dataKey="error_rate" name="失败率" fill="#ea4335" opacity={0.85} stackId="s" radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -285,7 +286,7 @@ export default function StatsPage() {
                     <XAxis {...xAxisProps} />
                     <YAxis tickFormatter={fmtMs} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<ChartTooltipMs />} />
-                    <Bar dataKey="avg_first_token_latency_ms" name="首字延迟" fill="#8b5cf6" opacity={0.85} radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="avg_first_token_latency_ms" name="首字延迟" fill="#9334e6" opacity={0.85} radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -297,7 +298,7 @@ export default function StatsPage() {
                     <XAxis {...xAxisProps} />
                     <YAxis tickFormatter={fmtMs} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<ChartTooltipMs />} />
-                    <Bar dataKey="avg_latency_ms" name="响应时间" fill="#f97316" opacity={0.85} radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="avg_latency_ms" name="响应时间" fill="#f9ab00" opacity={0.85} radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -360,11 +361,11 @@ export default function StatsPage() {
                       </span>
                       <span style={{ color: '#6b7280', fontSize: 12 }}>{fmtNum(k.total_tokens)}</span>
                     </div>
-                    <div style={{ height: 5, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: 5, background: '#f1f3f4', borderRadius: 3, overflow: 'hidden' }}>
                       <div style={{
                         height: '100%', borderRadius: 3,
                         width: `${pct}%`,
-                        background: i === 0 ? '#6366f1' : '#e0e7ff',
+                        background: i === 0 ? '#1a73e8' : '#c5d9f8',
                         transition: 'width 0.6s ease',
                       }} />
                     </div>
@@ -390,12 +391,12 @@ export default function StatsPage() {
                       </span>
                       <span style={{ color: '#6b7280', flexShrink: 0 }}>{m.requests.toLocaleString()} 次</span>
                     </div>
-                    <div style={{ height: 5, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: 5, background: '#f1f3f4', borderRadius: 3, overflow: 'hidden' }}>
                       <div style={{
                         height: '100%', borderRadius: 3,
                         width: `${pct}%`,
                         background: CHART_COLORS[i % CHART_COLORS.length],
-                        opacity: 0.75,
+                        opacity: 0.8,
                         transition: 'width 0.6s ease',
                       }} />
                     </div>
@@ -410,8 +411,8 @@ export default function StatsPage() {
         <Card title="请求状态分布">
           {!overview || overview.total_requests === 0 ? <EmptyState text="暂无数据" /> : (() => {
             const data = [
-              { name: '成功', value: overview.success_requests, color: '#10b981', bg: '#ecfdf5' },
-              { name: '失败', value: overview.error_requests, color: '#ef4444', bg: '#fef2f2' },
+              { name: '成功', value: overview.success_requests, color: '#34a853', bg: '#e6f4ea' },
+              { name: '失败', value: overview.error_requests, color: '#ea4335', bg: '#fce8e6' },
             ]
             return (
               <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>

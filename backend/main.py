@@ -38,6 +38,12 @@ _migrations = [
     ("api_logs", "cache_write_tokens", "ALTER TABLE api_logs ADD COLUMN cache_write_tokens INTEGER DEFAULT 0"),
     ("api_logs", "key_name", "ALTER TABLE api_logs ADD COLUMN key_name VARCHAR(100) NOT NULL DEFAULT 'unknown'"),
     ("api_logs", "client_ip", "ALTER TABLE api_logs ADD COLUMN client_ip VARCHAR(45)"),
+    ("client_keys", "token_limit", "ALTER TABLE client_keys ADD COLUMN token_limit INTEGER"),
+]
+
+# 单独处理需要修改约束的迁移（PostgreSQL only）
+_constraint_migrations = [
+    "ALTER TABLE api_logs ALTER COLUMN api_key_prefix DROP NOT NULL",
 ]
 
 def _column_exists(conn, table_name: str, column_name: str) -> bool:
@@ -62,8 +68,14 @@ with engine.connect() as _conn:
             if not _column_exists(_conn, table_name, column_name):
                 _conn.execute(text(_sql))
         except Exception:
-            # 表可能不存在，忽略错误
             pass
+    # PostgreSQL only：修改列约束
+    if "sqlite" not in str(engine.url):
+        for _sql in _constraint_migrations:
+            try:
+                _conn.execute(text(_sql))
+            except Exception:
+                pass
     _conn.commit()
 
 

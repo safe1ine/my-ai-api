@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 logger = logging.getLogger("proxy")
 from fastapi.responses import StreamingResponse, Response
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth import verify_client_key
@@ -283,9 +284,8 @@ def _inject_anthropic_cache(req: dict) -> dict:
 async def _proxy(request: Request, vendor: str, path: str,
                  db: Session, client_key):
     ptype = ProviderType.openai if vendor == "openai" else ProviderType.anthropic
-    provider_list = _pick_providers(db, ptype)
 
-    # 用量上限校验
+    # 用量上限校验（在选 provider 之前）
     if client_key.token_limit is not None and _should_log(vendor, path):
         used = db.query(func.sum(ApiLog.total_tokens)).filter(
             ApiLog.client_key_id == client_key.id
@@ -303,6 +303,8 @@ async def _proxy(request: Request, vendor: str, path: str,
                 error_message="Token 用量已达上限",
             )
             raise HTTPException(status_code=429, detail="Token 用量已达上限")
+
+    provider_list = _pick_providers(db, ptype)
 
     body = await request.body()
     params = dict(request.query_params)

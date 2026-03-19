@@ -28,7 +28,7 @@ export default function Layout({ children, onLogout }: { children: ReactNode; on
     <div style={{ display: 'flex', height: '100vh', background: '#f8f9fa', fontFamily: "'Google Sans', Roboto, sans-serif" }}>
       {/* Sidebar */}
       <nav style={{
-        width: 256,
+        width: 200,
         background: '#fff',
         borderRight: '1px solid #e8eaed',
         flexShrink: 0,

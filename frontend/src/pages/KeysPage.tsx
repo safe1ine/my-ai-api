@@ -19,6 +19,8 @@ export default function KeysPage() {
   const [copiedRowId, setCopiedRowId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<KeyOut | null>(null)
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'danger' } | null>(null)
+  const [editTarget, setEditTarget] = useState<KeyOut | null>(null)
+  const [editName, setEditName] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = () => {
@@ -71,6 +73,20 @@ export default function KeysPage() {
       load()
     } catch {
       showToast('操作失败', 'danger')
+    }
+  }
+
+  const handleRename = async () => {
+    if (!editTarget) return
+    const name = editName.trim()
+    if (!name) return
+    try {
+      await keysApi.update(editTarget.id, { name })
+      setEditTarget(null)
+      load()
+      showToast('名称已更新')
+    } catch {
+      showToast('更新失败', 'danger')
     }
   }
 
@@ -204,7 +220,37 @@ export default function KeysPage() {
               {keys.map(k => (
                 <tr key={k.id} style={{ borderTop: '1px solid #f3f4f6' }}>
                   <td style={{ padding: '14px 20px' }}>
-                    <span className="fw-semibold" style={{ fontSize: 14 }}>{k.name}</span>
+                    {editTarget?.id === k.id ? (
+                      <div className="d-flex align-items-center gap-1">
+                        <input
+                          className="form-control form-control-sm"
+                          style={{ borderRadius: 6, fontSize: 13, width: 160 }}
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setEditTarget(null) }}
+                          autoFocus
+                        />
+                        <button onClick={handleRename} style={{ border: 'none', background: 'none', color: '#16a34a', cursor: 'pointer', fontSize: 15, padding: '2px 4px' }}>
+                          <i className="bi bi-check-lg" />
+                        </button>
+                        <button onClick={() => setEditTarget(null)} style={{ border: 'none', background: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 15, padding: '2px 4px' }}>
+                          <i className="bi bi-x-lg" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="d-flex align-items-center gap-1 group-hover">
+                        <span className="fw-semibold" style={{ fontSize: 14 }}>{k.name}</span>
+                        <button
+                          onClick={() => { setEditTarget(k); setEditName(k.name) }}
+                          title="修改名称"
+                          style={{ border: 'none', background: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: 13, padding: '2px 4px', borderRadius: 4 }}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#6366f1')}
+                          onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}
+                        >
+                          <i className="bi bi-pencil" />
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '14px 20px' }}>
                     <div className="d-flex align-items-center gap-2">

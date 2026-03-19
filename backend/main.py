@@ -58,7 +58,7 @@ def _column_exists(conn, table_name: str, column_name: str) -> bool:
         # PostgreSQL: 使用 information_schema
         result = conn.execute(text(
             "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = :table AND column_name = :column"
+            "WHERE table_name = :table AND column_name = :column AND table_schema = 'public'"
         ), {"table": table_name, "column": column_name})
         return result.fetchone() is not None
 

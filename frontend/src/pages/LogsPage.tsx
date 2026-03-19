@@ -397,13 +397,14 @@ export default function LogsPage() {
 
         <select
           value={providerFilter}
-          onChange={e => { setProviderFilter(e.target.value); setProviderInput(e.target.value); setPage(1); load(1, statusFilter, modelFilter, e.target.value, keyFilter) }}
+          onChange={e => { const v = e.target.value; setProviderFilter(v); setPage(1); load(1, statusFilter, modelFilter, v, keyFilter) }}
           style={{
-            padding: '5px 12px', fontSize: 13, borderRadius: 4,
+            padding: '5px 32px 5px 12px', fontSize: 13, borderRadius: 4,
             border: `1px solid ${providerFilter ? '#1a73e8' : '#dadce0'}`,
-            background: providerFilter ? '#e8f0fe' : '#fff',
+            background: `${providerFilter ? '#e8f0fe' : '#fff'} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235f6368' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 10px center`,
             color: providerFilter ? '#1a73e8' : '#3c4043',
             cursor: 'pointer', outline: 'none', minWidth: 120,
+            appearance: 'none' as any,
           }}
         >
           <option value="">全部上游</option>
@@ -412,13 +413,14 @@ export default function LogsPage() {
 
         <select
           value={keyFilter}
-          onChange={e => { setKeyFilter(e.target.value); setKeyInput(e.target.value); setPage(1); load(1, statusFilter, modelFilter, providerFilter, e.target.value) }}
+          onChange={e => { const v = e.target.value; setKeyFilter(v); setPage(1); load(1, statusFilter, modelFilter, providerFilter, v) }}
           style={{
-            padding: '5px 12px', fontSize: 13, borderRadius: 4,
+            padding: '5px 32px 5px 12px', fontSize: 13, borderRadius: 4,
             border: `1px solid ${keyFilter ? '#1a73e8' : '#dadce0'}`,
-            background: keyFilter ? '#e8f0fe' : '#fff',
+            background: `${keyFilter ? '#e8f0fe' : '#fff'} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235f6368' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 10px center`,
             color: keyFilter ? '#1a73e8' : '#3c4043',
             cursor: 'pointer', outline: 'none', minWidth: 120,
+            appearance: 'none' as any,
           }}
         >
           <option value="">全部 Token</option>

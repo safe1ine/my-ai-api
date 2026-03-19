@@ -50,9 +50,9 @@ def list_logs(
     if model:
         q = q.filter(ApiLog.model.contains(model))
     if provider_name:
-        q = q.join(ApiLog.provider).filter(Provider.name.contains(provider_name))
+        q = q.join(ApiLog.provider).filter(Provider.name == provider_name)
     if key_name:
-        q = q.join(ApiLog.client_key).filter(ClientKey.name.contains(key_name))
+        q = q.join(ApiLog.client_key).filter(ClientKey.name == key_name)
 
     total = q.count()
     rows = q.order_by(ApiLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()

@@ -153,6 +153,12 @@ function normalizeGroupName(groupName: string | null | undefined): string {
   return groupName?.trim() || '未分组'
 }
 
+function compareProvidersByPriority(a: ProviderOut, b: ProviderOut): number {
+  const priorityCmp = (a.priority ?? 5) - (b.priority ?? 5)
+  if (priorityCmp !== 0) return priorityCmp
+  return a.name.localeCompare(b.name, 'zh-CN')
+}
+
 const TYPE_CONFIG = {
   openai: { label: 'OpenAI', color: '#10a37f', bg: '#f0fdf8', icon: 'bi-stars' },
   anthropic: { label: 'Anthropic', color: '#d97706', bg: '#fffbeb', icon: 'bi-cpu' },
@@ -256,6 +262,29 @@ export default function ProvidersPage() {
       const detail = await providersApi.get(p.id)
       setForm(f => ({ ...f, api_key: detail.api_key }))
     } catch {}
+  }
+
+  const openDuplicate = async (p: ProviderOut) => {
+    setForm({
+      ...emptyForm,
+      name: `${p.name} Copy`,
+      group_name: p.group_name ?? '',
+      type: p.type,
+      api_key: '',
+      base_url: p.base_url ?? '',
+      proxy_url: p.proxy_url ?? '',
+      is_active: p.is_active,
+      priority: p.priority ?? 5,
+      skip_health_check: p.skip_health_check ?? false,
+    })
+    setFormMode('create')
+    openModal()
+    try {
+      const detail = await providersApi.get(p.id)
+      setForm(f => ({ ...f, api_key: detail.api_key }))
+    } catch {
+      showToast('复制 upstream 时获取 API Key 失败', 'danger')
+    }
   }
 
   const openModal = () => {
@@ -617,6 +646,7 @@ export default function ProvidersPage() {
       <td style={{ padding: '14px 20px' }}>
         <div className="d-flex gap-1">
           <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#1a73e8" />
+          <IconBtn icon="bi-copy" title="复制" onClick={() => openDuplicate(p)} hoverColor="#7c3aed" />
           <IconBtn
             icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
             title="测试连通性"
@@ -633,13 +663,7 @@ export default function ProvidersPage() {
   const renderTypeSection = (type: 'openai' | 'anthropic') => {
     const typeProviders = providers
       .filter(p => p.type === type)
-      .sort((a, b) => {
-        const groupCmp = normalizeGroupName(a.group_name).localeCompare(normalizeGroupName(b.group_name), 'zh-CN')
-        if (groupCmp !== 0) return groupCmp
-        const priorityCmp = (a.priority ?? 5) - (b.priority ?? 5)
-        if (priorityCmp !== 0) return priorityCmp
-        return a.created_at.localeCompare(b.created_at)
-      })
+      .sort(compareProvidersByPriority)
     if (typeProviders.length === 0) return null
 
     const tc = TYPE_CONFIG[type]
@@ -658,7 +682,7 @@ export default function ProvidersPage() {
       ...[...grouped.entries()].map(([groupName, groupProviders]) => ({
         key: `${type}:group:${groupName}`,
         title: groupName,
-        providers: groupProviders,
+        providers: [...groupProviders].sort(compareProvidersByPriority),
         grouped: true,
       })),
       ...ungrouped.map(provider => ({
@@ -667,7 +691,12 @@ export default function ProvidersPage() {
         providers: [provider],
         grouped: false,
       })),
-    ]
+    ].sort((a, b) => {
+      const priorityCmp = (a.providers[0]?.priority ?? 5) - (b.providers[0]?.priority ?? 5)
+      if (priorityCmp !== 0) return priorityCmp
+      if (a.grouped !== b.grouped) return a.grouped ? -1 : 1
+      return a.title.localeCompare(b.title, 'zh-CN')
+    })
 
     return (
       <div key={type} style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden' }}>

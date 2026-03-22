@@ -8,6 +8,13 @@ ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 ANTHROPIC_VERSION = "2023-06-01"
 
 
+def _build_url(base_url: str | None, path: str) -> str:
+    base = (base_url or ANTHROPIC_BASE_URL).rstrip("/")
+    if base.endswith("/v1"):
+        return base + path.removeprefix("/v1")
+    return base + path
+
+
 def _build_headers(api_key: str) -> dict:
     return {
         "x-api-key": api_key,
@@ -25,7 +32,7 @@ async def call_messages(
     非流式调用 Anthropic Messages API
     返回 (response_json, input_tokens, output_tokens, latency_ms)
     """
-    url = (base_url or ANTHROPIC_BASE_URL).rstrip("/") + "/v1/messages"
+    url = _build_url(base_url, "/v1/messages")
     payload = {**payload, "stream": False}
 
     start = time.monotonic()
@@ -47,7 +54,7 @@ async def stream_messages(
     payload: dict,
 ) -> AsyncIterator[bytes]:
     """流式调用 Anthropic Messages API，yield SSE 字节块"""
-    url = (base_url or ANTHROPIC_BASE_URL).rstrip("/") + "/v1/messages"
+    url = _build_url(base_url, "/v1/messages")
     payload = {**payload, "stream": True}
 
     async with httpx.AsyncClient(timeout=120) as client:
@@ -117,7 +124,7 @@ def anthropic_to_openai(data: dict, original_model: str) -> dict:
 
 async def list_models(api_key: str, base_url: str | None, proxy_url: str | None = None) -> list[str]:
     """返回该 Anthropic 上游支持的模型 ID 列表"""
-    url = (base_url or ANTHROPIC_BASE_URL).rstrip("/") + "/v1/models"
+    url = _build_url(base_url, "/v1/models")
     async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
         resp = await client.get(url, headers=_build_headers(api_key))
         resp.raise_for_status()
@@ -127,7 +134,7 @@ async def list_models(api_key: str, base_url: str | None, proxy_url: str | None 
 
 async def test_connection(api_key: str, base_url: str | None, proxy_url: str | None = None) -> tuple[bool, str | None, int]:
     """测试 Anthropic API 连通性，返回 (success, error_message, latency_ms)"""
-    url = (base_url or ANTHROPIC_BASE_URL).rstrip("/") + "/v1/messages"
+    url = _build_url(base_url, "/v1/messages")
     payload = {
         "model": "claude-haiku-4-5-20251001",
         "messages": [{"role": "user", "content": "hi"}],

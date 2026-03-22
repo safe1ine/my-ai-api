@@ -9,6 +9,13 @@ OPENAI_RESPONSES_PATH = "/v1/responses"
 OPENAI_CHAT_PATH = "/v1/chat/completions"
 
 
+def _build_url(base_url: str | None, path: str) -> str:
+    base = (base_url or OPENAI_BASE_URL).rstrip("/")
+    if base.endswith("/v1"):
+        return base + path.removeprefix("/v1")
+    return base + path
+
+
 async def call_responses(
     api_key: str,
     base_url: str | None,
@@ -17,7 +24,7 @@ async def call_responses(
     """
     非流式调用，返回 (response_json, input_tokens, output_tokens, latency_ms)
     """
-    url = (base_url or OPENAI_BASE_URL).rstrip("/") + OPENAI_RESPONSES_PATH
+    url = _build_url(base_url, OPENAI_RESPONSES_PATH)
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -45,7 +52,7 @@ async def stream_responses(
     """
     流式调用，yield SSE 字节块
     """
-    url = (base_url or OPENAI_BASE_URL).rstrip("/") + OPENAI_RESPONSES_PATH
+    url = _build_url(base_url, OPENAI_RESPONSES_PATH)
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -61,7 +68,7 @@ async def stream_responses(
 
 async def list_models(api_key: str, base_url: str | None, proxy_url: str | None = None) -> list[str]:
     """返回该 OpenAI 上游支持的模型 ID 列表"""
-    url = (base_url or OPENAI_BASE_URL).rstrip("/") + "/v1/models"
+    url = _build_url(base_url, "/v1/models")
     headers = {"Authorization": f"Bearer {api_key}"}
     async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
         resp = await client.get(url, headers=headers)
@@ -76,13 +83,13 @@ async def test_connection(api_key: str, base_url: str | None, proxy_url: str | N
     checks = [
         (
             "responses",
-            (base_url or OPENAI_BASE_URL).rstrip("/") + OPENAI_RESPONSES_PATH,
+            _build_url(base_url, OPENAI_RESPONSES_PATH),
             {"model": "gpt-4o-mini", "input": "hi", "max_output_tokens": 1},
             "output",
         ),
         (
             "chat/completions",
-            (base_url or OPENAI_BASE_URL).rstrip("/") + OPENAI_CHAT_PATH,
+            _build_url(base_url, OPENAI_CHAT_PATH),
             {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1},
             "choices",
         ),

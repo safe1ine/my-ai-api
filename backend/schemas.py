@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 # ── Provider ──────────────────────────────────────────────
 class ProviderBase(BaseModel):
     name: str
+    group_name: str | None = None
     type: Literal["openai", "anthropic"]
     api_key: str
     base_url: str | None = None
@@ -21,6 +22,7 @@ class ProviderCreate(ProviderBase):
 
 class ProviderUpdate(BaseModel):
     name: str | None = None
+    group_name: str | None = None
     type: Literal["openai", "anthropic"] | None = None
     api_key: str | None = None
     base_url: str | None = None
@@ -35,6 +37,7 @@ class ProviderOut(BaseModel):
 
     id: int
     name: str
+    group_name: str | None = None
     type: str
     api_key_prefix: str = ""      # 脱敏后只显示前缀
     base_url: str | None
@@ -55,6 +58,7 @@ class ProviderOut(BaseModel):
         return cls(
             id=obj.id,
             name=obj.name,
+            group_name=obj.group_name if hasattr(obj, 'group_name') else None,
             type=obj.type,
             api_key_prefix=prefix,
             base_url=obj.base_url,
@@ -76,6 +80,7 @@ class ProviderDetail(BaseModel):
 
     id: int
     name: str
+    group_name: str | None = None
     type: str
     api_key: str
     base_url: str | None

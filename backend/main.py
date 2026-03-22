@@ -25,6 +25,7 @@ Base.metadata.create_all(bind=engine)
 
 # 兼容旧数据库：按需添加新列 (支持 SQLite 和 PostgreSQL)
 _migrations = [
+    ("providers", "group_name", "ALTER TABLE providers ADD COLUMN group_name VARCHAR(100)"),
     ("providers", "proxy_url", "ALTER TABLE providers ADD COLUMN proxy_url VARCHAR(500)"),
     ("providers", "last_check_at", "ALTER TABLE providers ADD COLUMN last_check_at TIMESTAMP"),
     ("providers", "last_check_success", "ALTER TABLE providers ADD COLUMN last_check_success BOOLEAN"),

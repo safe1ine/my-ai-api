@@ -132,6 +132,7 @@ function ColPicker({ visible, onChange }: { visible: Set<ColKey>; onChange: (nex
 
 const emptyForm: ProviderCreate & { id?: number } = {
   name: '',
+  group_name: '',
   type: 'openai',
   api_key: '',
   base_url: '',
@@ -146,6 +147,10 @@ function fmtTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
   return String(n)
+}
+
+function normalizeGroupName(groupName: string | null | undefined): string {
+  return groupName?.trim() || '未分组'
 }
 
 const TYPE_CONFIG = {
@@ -188,6 +193,9 @@ export default function ProvidersPage() {
   const [revealedKeys, setRevealedKeys] = useState<RevealedKeys>({})
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(loadVisibleCols)
   const [tokenStats, setTokenStats] = useState<Record<number, ProviderTokenStats>>({})
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
+  const [groupSavingKey, setGroupSavingKey] = useState<string | null>(null)
+  const [priorityDialog, setPriorityDialog] = useState<{ key: string; providers: ProviderOut[]; value: number } | null>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
   const show = (k: ColKey) => visibleCols.has(k)
@@ -213,6 +221,16 @@ export default function ProvidersPage() {
     setTimeout(() => setToast(null), 3500)
   }
 
+  const trimmedGroupName = form.group_name?.trim() || ''
+  const formGroupProviders = trimmedGroupName
+    ? providers.filter(p =>
+      p.type === form.type &&
+      normalizeGroupName(p.group_name) === normalizeGroupName(trimmedGroupName)
+      )
+    : []
+  const groupedFormMode = Boolean(trimmedGroupName) && (formMode === 'edit' || formGroupProviders.length > 0)
+  const existingGroupLeader = formGroupProviders.find(p => p.id !== form.id) ?? formGroupProviders[0] ?? null
+
   const openCreate = () => {
     setForm({ ...emptyForm })
     setFormMode('create')
@@ -223,6 +241,7 @@ export default function ProvidersPage() {
     setForm({ 
       id: p.id, 
       name: p.name, 
+      group_name: p.group_name ?? '',
       type: p.type, 
       api_key: '', 
       base_url: p.base_url ?? '', 
@@ -265,21 +284,23 @@ export default function ProvidersPage() {
       if (formMode === 'create') {
         await providersApi.create({ 
           name: form.name, 
+          group_name: form.group_name?.trim() || undefined,
           type: form.type, 
           api_key: form.api_key, 
           base_url: form.base_url || undefined, 
           proxy_url: form.proxy_url || undefined, 
-          is_active: form.is_active, 
-          priority: form.priority,
+          is_active: existingGroupLeader ? existingGroupLeader.is_active : form.is_active, 
+          priority: existingGroupLeader ? existingGroupLeader.priority : form.priority,
           skip_health_check: form.skip_health_check,
         })
         showToast('Upstream 已创建')
       } else {
         const body: Record<string, unknown> = { 
           name: form.name, 
+          group_name: form.group_name?.trim() || null,
           type: form.type, 
-          is_active: form.is_active, 
-          priority: form.priority,
+          is_active: existingGroupLeader ? existingGroupLeader.is_active : form.is_active, 
+          priority: existingGroupLeader ? existingGroupLeader.priority : form.priority,
           skip_health_check: form.skip_health_check,
         }
         if (form.api_key) body.api_key = form.api_key
@@ -363,6 +384,47 @@ export default function ProvidersPage() {
     }
   }
 
+  const toggleGroupExpanded = (groupKey: string) => {
+    setExpandedGroups(s => ({ ...s, [groupKey]: !s[groupKey] }))
+  }
+
+  const handleGroupToggle = async (groupKey: string, groupProviders: ProviderOut[]) => {
+    const nextValue = !groupProviders.every(p => p.is_active)
+    setGroupSavingKey(groupKey)
+    try {
+      await Promise.all(groupProviders.map(p => providersApi.update(p.id, { is_active: nextValue })))
+      showToast(nextValue ? '分组已启用' : '分组已禁用')
+      load()
+    } catch {
+      showToast('分组状态更新失败', 'danger')
+    } finally {
+      setGroupSavingKey(null)
+    }
+  }
+
+  const handleGroupPriorityChange = async (groupKey: string, groupProviders: ProviderOut[], priority: number) => {
+    setGroupSavingKey(groupKey)
+    try {
+      await Promise.all(groupProviders.map(p => providersApi.update(p.id, { priority })))
+      showToast(`分组优先级已更新为 ${priority}`)
+      load()
+    } catch {
+      showToast('分组优先级更新失败', 'danger')
+    } finally {
+      setGroupSavingKey(null)
+    }
+  }
+
+  const openGroupPriorityDialog = (groupKey: string, groupProviders: ProviderOut[], priority: number) => {
+    setPriorityDialog({ key: groupKey, providers: groupProviders, value: priority })
+  }
+
+  const submitGroupPriorityDialog = async () => {
+    if (!priorityDialog) return
+    await handleGroupPriorityChange(priorityDialog.key, priorityDialog.providers, priorityDialog.value)
+    setPriorityDialog(null)
+  }
+
   const fmtDate = (iso: string) => new Date(iso + 'Z').toLocaleString('zh-CN', { hour12: false })
 
   const HealthBadge = ({ p }: { p: ProviderOut }) => {
@@ -407,6 +469,354 @@ export default function ProvidersPage() {
     success: { bg: '#dcfce7', border: '#86efac', color: '#166534', icon: 'bi-check-circle-fill' },
     danger: { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', icon: 'bi-exclamation-circle-fill' },
     info: { bg: '#dbeafe', border: '#93c5fd', color: '#1e40af', icon: 'bi-info-circle-fill' },
+  }
+
+  const renderProviderRow = (p: ProviderOut) => (
+    <tr key={p.id} style={{ borderTop: '1px solid #f3f4f6' }}>
+      {show('priority') && (
+        <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 26, height: 26, borderRadius: 8,
+            background: '#f8f9fa', color: '#3c4043',
+            fontSize: 13, fontWeight: 700,
+          }}>
+            {p.priority ?? 5}
+          </span>
+        </td>
+      )}
+      {show('name') && (
+        <td style={{ padding: '14px 20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span className="fw-semibold" style={{ fontSize: 14 }}>{p.name}</span>
+            {p.group_name && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                width: 'fit-content', fontSize: 12, color: '#6b7280',
+                background: '#f3f4f6', borderRadius: 999, padding: '2px 8px',
+              }}>
+                <i className="bi bi-collection" style={{ fontSize: 11 }} />
+                {p.group_name}
+              </span>
+            )}
+          </div>
+        </td>
+      )}
+      {show('apiKey') && (
+        <td style={{ padding: '14px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <code style={{
+              fontSize: 12, background: '#f8f9fa', color: '#3c4043',
+              padding: '3px 8px', borderRadius: 6, fontFamily: 'monospace',
+              maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {revealedKeys[p.id] === 'loading'
+                ? '加载中...'
+                : revealedKeys[p.id]
+                  ? revealedKeys[p.id]
+                  : `${p.api_key_prefix}···`}
+            </code>
+            <button
+              title={revealedKeys[p.id] ? '隐藏' : '查看完整 Key'}
+              onClick={() => handleRevealKey(p)}
+              style={{
+                border: 'none', background: 'none', padding: '2px 4px',
+                cursor: 'pointer', color: '#9ca3af', fontSize: 13, lineHeight: 1, flexShrink: 0,
+              }}
+            >
+              <i className={`bi ${revealedKeys[p.id] && revealedKeys[p.id] !== 'loading' ? 'bi-eye-slash' : 'bi-eye'}`} />
+            </button>
+          </div>
+        </td>
+      )}
+      {show('baseUrl') && (
+        <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 200 }}>
+          {p.base_url
+            ? <span style={{ wordBreak: 'break-all' }}>{p.base_url}</span>
+            : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>默认</span>
+          }
+        </td>
+      )}
+      {show('proxy') && (
+        <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 180 }}>
+          {p.proxy_url
+            ? (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: '#fef3c7', color: '#92400e',
+                borderRadius: 6, padding: '2px 8px', fontSize: 12, wordBreak: 'break-all',
+              }}>
+                <i className="bi bi-hdd-network" style={{ fontSize: 11, flexShrink: 0 }} />
+                {p.proxy_url}
+              </span>
+            )
+            : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>直连</span>
+          }
+        </td>
+      )}
+      {show('health') && (
+        <td style={{ padding: '14px 20px' }}>
+          <HealthBadge p={p} />
+        </td>
+      )}
+      {show('tokenStats') && (
+        <td style={{ padding: '14px 20px' }}>
+          {(() => {
+            const s = tokenStats[p.id]
+            if (!s || (s.total_input_tokens === 0 && s.total_output_tokens === 0)) {
+              return <span style={{ fontSize: 12, color: '#9ca3af' }}>--</span>
+            }
+            return (
+              <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span style={{ color: '#6b7280' }}>总计</span>
+                  <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.total_input_tokens.toLocaleString()}`}>
+                    <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_input_tokens)}
+                  </span>
+                  <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.total_output_tokens.toLocaleString()}`}>
+                    <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_output_tokens)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span style={{ color: '#6b7280' }}>今日</span>
+                  <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.today_input_tokens.toLocaleString()}`}>
+                    <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_input_tokens)}
+                  </span>
+                  <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.today_output_tokens.toLocaleString()}`}>
+                    <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_output_tokens)}
+                  </span>
+                </div>
+              </div>
+            )
+          })()}
+        </td>
+      )}
+      {show('status') && (
+        <td style={{ padding: '14px 20px' }}>
+          <div
+            onClick={() => { if (!p.group_name) handleToggle(p) }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '3px 10px', borderRadius: 20, cursor: p.group_name ? 'default' : 'pointer',
+              background: p.is_active ? '#dcfce7' : '#f3f4f6',
+              color: p.is_active ? '#16a34a' : '#6b7280',
+              fontSize: 12, fontWeight: 500, userSelect: 'none', transition: 'all 0.2s',
+            }}
+            title={p.group_name ? '已分组，请在分组头统一启用/禁用' : undefined}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.is_active ? '#22c55e' : '#d1d5db' }} />
+            {p.is_active ? '已启用' : '已禁用'}
+          </div>
+        </td>
+      )}
+      {show('createdAt') && (
+        <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>
+          {fmtDate(p.created_at)}
+        </td>
+      )}
+      <td style={{ padding: '14px 20px' }}>
+        <div className="d-flex gap-1">
+          <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#1a73e8" />
+          <IconBtn
+            icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
+            title="测试连通性"
+            onClick={() => handleTest(p)}
+            hoverColor="#0ea5e9"
+          />
+          <IconBtn icon="bi-grid" title="查看模型列表" onClick={() => handleModels(p)} hoverColor="#10b981" />
+          <IconBtn icon="bi-trash" title="删除" onClick={() => setDeleteTarget(p)} hoverColor="#ef4444" />
+        </div>
+      </td>
+    </tr>
+  )
+
+  const renderTypeSection = (type: 'openai' | 'anthropic') => {
+    const typeProviders = providers
+      .filter(p => p.type === type)
+      .sort((a, b) => {
+        const groupCmp = normalizeGroupName(a.group_name).localeCompare(normalizeGroupName(b.group_name), 'zh-CN')
+        if (groupCmp !== 0) return groupCmp
+        const priorityCmp = (a.priority ?? 5) - (b.priority ?? 5)
+        if (priorityCmp !== 0) return priorityCmp
+        return a.created_at.localeCompare(b.created_at)
+      })
+    if (typeProviders.length === 0) return null
+
+    const tc = TYPE_CONFIG[type]
+    const grouped = new Map<string, ProviderOut[]>()
+    const ungrouped: ProviderOut[] = []
+    for (const provider of typeProviders) {
+      if (provider.group_name?.trim()) {
+        const groupName = normalizeGroupName(provider.group_name)
+        if (!grouped.has(groupName)) grouped.set(groupName, [])
+        grouped.get(groupName)!.push(provider)
+      } else {
+        ungrouped.push(provider)
+      }
+    }
+    const sections = [
+      ...[...grouped.entries()].map(([groupName, groupProviders]) => ({
+        key: `${type}:group:${groupName}`,
+        title: groupName,
+        providers: groupProviders,
+        grouped: true,
+      })),
+      ...ungrouped.map(provider => ({
+        key: `${type}:single:${provider.id}`,
+        title: provider.name,
+        providers: [provider],
+        grouped: false,
+      })),
+    ]
+
+    return (
+      <div key={type} style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{
+          background: type === 'openai'
+            ? 'linear-gradient(135deg, #f0fdf8 0%, #ecfdf5 100%)'
+            : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          padding: '14px 20px',
+          borderBottom: type === 'openai' ? '1px solid #d1fae5' : '1px solid #fde68a',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: tc.color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <i className={`bi ${tc.icon}`} style={{ color: '#fff', fontSize: 15 }} />
+            </div>
+            <div>
+              <h5 className="mb-0 fw-bold" style={{ fontSize: 15, color: type === 'openai' ? '#065f46' : '#92400e' }}>{tc.label}</h5>
+              <p className="mb-0 text-muted" style={{ fontSize: 12 }}>
+                {type === 'openai' ? 'OpenAI 及兼容接口供应商' : 'Anthropic Claude 系列供应商'}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="badge rounded-pill" style={{ background: '#fff', color: tc.color, fontSize: 12, padding: '5px 12px', border: `1px solid ${tc.color}33` }}>
+              {grouped.size} 组
+            </span>
+            <span className="badge rounded-pill" style={{ background: tc.color, color: '#fff', fontSize: 12, padding: '5px 12px' }}>
+              {typeProviders.length} 个
+            </span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {sections.map((section, index) => {
+            const groupProviders = section.providers
+            const groupPriority = groupProviders[0]?.priority ?? 5
+            const allActive = groupProviders.every(p => p.is_active)
+            const collapsed = section.grouped ? !expandedGroups[section.key] : false
+            const busy = groupSavingKey === section.key
+            const groupTotalInput = groupProviders.reduce((sum, p) => sum + (tokenStats[p.id]?.total_input_tokens ?? 0), 0)
+            const groupTotalOutput = groupProviders.reduce((sum, p) => sum + (tokenStats[p.id]?.total_output_tokens ?? 0), 0)
+            const groupTodayInput = groupProviders.reduce((sum, p) => sum + (tokenStats[p.id]?.today_input_tokens ?? 0), 0)
+            const groupTodayOutput = groupProviders.reduce((sum, p) => sum + (tokenStats[p.id]?.today_output_tokens ?? 0), 0)
+            return (
+            <div key={section.key} style={{ borderTop: index === 0 ? 'none' : '1px solid #eef2f7' }}>
+              <div style={{
+                padding: '10px 20px',
+                background: '#fafbfc',
+                borderBottom: '1px solid #eef2f7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {section.grouped && (
+                    <div
+                      onClick={() => !busy && openGroupPriorityDialog(section.key, groupProviders, groupPriority)}
+                      title={busy ? '处理中...' : '点击修改分组优先级'}
+                      style={{ cursor: busy ? 'not-allowed' : 'pointer' }}
+                    >
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 26, height: 26, borderRadius: 8,
+                        background: '#f8f9fa', color: '#3c4043',
+                        fontSize: 13, fontWeight: 700,
+                        border: '1px solid #e5e7eb',
+                        cursor: busy ? 'not-allowed' : 'pointer',
+                      }}>
+                        {groupPriority}
+                      </span>
+                    </div>
+                  )}
+                  {section.grouped && (
+                    <button
+                      onClick={() => toggleGroupExpanded(section.key)}
+                      style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: '#6b7280', lineHeight: 1 }}
+                    >
+                      <i className={`bi ${collapsed ? 'bi-chevron-right' : 'bi-chevron-down'}`} style={{ fontSize: 12 }} />
+                    </button>
+                  )}
+                  <i className={`bi ${section.grouped ? 'bi-collection' : 'bi-box'}`} style={{ color: '#6b7280', fontSize: 13 }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{section.title}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {section.grouped && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                      <div
+                        onClick={() => !busy && handleGroupToggle(section.key, groupProviders)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '3px 10px', borderRadius: 999,
+                          background: allActive ? '#dcfce7' : '#f3f4f6',
+                          color: allActive ? '#16a34a' : '#6b7280',
+                          fontWeight: 600,
+                          cursor: busy ? 'not-allowed' : 'pointer',
+                        }}
+                        title={busy ? '处理中...' : (allActive ? '点击禁用整组' : '点击启用整组')}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: allActive ? '#22c55e' : '#d1d5db' }} />
+                        {busy ? '处理中...' : (allActive ? '已启用' : '已禁用')}
+                      </div>
+                      <div style={{ color: '#6b7280' }}>
+                        总计
+                        <span style={{ color: '#2563eb', fontWeight: 600, marginLeft: 6 }} title={`输入 ${groupTotalInput.toLocaleString()}`}>
+                          <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(groupTotalInput)}
+                        </span>
+                        <span style={{ color: '#16a34a', fontWeight: 600, marginLeft: 6 }} title={`输出 ${groupTotalOutput.toLocaleString()}`}>
+                          <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(groupTotalOutput)}
+                        </span>
+                      </div>
+                      <div style={{ color: '#9ca3af' }}>
+                        今日
+                        <span style={{ color: '#2563eb', fontWeight: 600, marginLeft: 6 }} title={`输入 ${groupTodayInput.toLocaleString()}`}>
+                          <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(groupTodayInput)}
+                        </span>
+                        <span style={{ color: '#16a34a', fontWeight: 600, marginLeft: 6 }} title={`输出 ${groupTodayOutput.toLocaleString()}`}>
+                          <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(groupTodayOutput)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <span style={{ fontSize: 12, color: '#9ca3af' }}>{groupProviders.length} 个上游</span>
+                </div>
+              </div>
+              {!collapsed && (
+              <table className="table table-hover mb-0 align-middle">
+                <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
+                  <tr>
+                    {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
+                      <th key={c.key} style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>{c.label}</th>
+                    ))}
+                    <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupProviders.map(renderProviderRow)}
+                </tbody>
+              </table>
+              )}
+            </div>
+          )})}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -474,395 +884,8 @@ export default function ProvidersPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* OpenAI Group */}
-          {(() => {
-            const openaiProviders = providers
-              .filter(p => p.type === 'openai')
-              .sort((a, b) => (a.priority ?? 5) - (b.priority ?? 5))
-            const tc = TYPE_CONFIG.openai
-            if (openaiProviders.length === 0) return null
-            return (
-              <div style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden' }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #f0fdf8 0%, #ecfdf5 100%)',
-                  padding: '14px 20px',
-                  borderBottom: '1px solid #d1fae5',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      background: tc.color,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <i className={`bi ${tc.icon}`} style={{ color: '#fff', fontSize: 15 }} />
-                    </div>
-                    <div>
-                      <h5 className="mb-0 fw-bold" style={{ fontSize: 15, color: '#065f46' }}>{tc.label}</h5>
-                      <p className="mb-0 text-muted" style={{ fontSize: 12 }}>OpenAI 及兼容接口供应商</p>
-                    </div>
-                  </div>
-                  <span className="badge rounded-pill" style={{ background: tc.color, color: '#fff', fontSize: 12, padding: '5px 12px' }}>
-                    {openaiProviders.length} 个
-                  </span>
-                </div>
-                <table className="table table-hover mb-0 align-middle">
-                  <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
-                    <tr>
-                      {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
-                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>{c.label}</th>
-                      ))}
-                      <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {openaiProviders.map(p => (
-                      <tr key={p.id} style={{ borderTop: '1px solid #f3f4f6' }}>
-                        {show('priority') && (
-                          <td style={{ padding: '14px 20px', textAlign: 'center' }}>
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              width: 26, height: 26, borderRadius: 8,
-                              background: '#f8f9fa', color: '#3c4043',
-                              fontSize: 13, fontWeight: 700,
-                            }}>
-                              {p.priority ?? 5}
-                            </span>
-                          </td>
-                        )}
-                        {show('name') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            <span className="fw-semibold" style={{ fontSize: 14 }}>{p.name}</span>
-                          </td>
-                        )}
-                        {show('apiKey') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <code style={{
-                                fontSize: 12, background: '#f8f9fa', color: '#3c4043',
-                                padding: '3px 8px', borderRadius: 6, fontFamily: 'monospace',
-                                maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                              }}>
-                                {revealedKeys[p.id] === 'loading'
-                                  ? '加载中...'
-                                  : revealedKeys[p.id]
-                                    ? revealedKeys[p.id]
-                                    : `${p.api_key_prefix}···`}
-                              </code>
-                              <button
-                                title={revealedKeys[p.id] ? '隐藏' : '查看完整 Key'}
-                                onClick={() => handleRevealKey(p)}
-                                style={{
-                                  border: 'none', background: 'none', padding: '2px 4px',
-                                  cursor: 'pointer', color: '#9ca3af', fontSize: 13, lineHeight: 1, flexShrink: 0,
-                                }}
-                              >
-                                <i className={`bi ${revealedKeys[p.id] && revealedKeys[p.id] !== 'loading' ? 'bi-eye-slash' : 'bi-eye'}`} />
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                        {show('baseUrl') && (
-                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 200 }}>
-                            {p.base_url
-                              ? <span style={{ wordBreak: 'break-all' }}>{p.base_url}</span>
-                              : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>默认</span>
-                            }
-                          </td>
-                        )}
-                        {show('proxy') && (
-                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 180 }}>
-                            {p.proxy_url
-                              ? (
-                                <span style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                                  background: '#fef3c7', color: '#92400e',
-                                  borderRadius: 6, padding: '2px 8px', fontSize: 12, wordBreak: 'break-all',
-                                }}>
-                                  <i className="bi bi-hdd-network" style={{ fontSize: 11, flexShrink: 0 }} />
-                                  {p.proxy_url}
-                                </span>
-                              )
-                              : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>直连</span>
-                            }
-                          </td>
-                        )}
-                        {show('health') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            <HealthBadge p={p} />
-                          </td>
-                        )}
-                        {show('tokenStats') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            {(() => {
-                              const s = tokenStats[p.id]
-                              if (!s || (s.total_input_tokens === 0 && s.total_output_tokens === 0)) {
-                                return <span style={{ fontSize: 12, color: '#9ca3af' }}>--</span>
-                              }
-                              return (
-                                <div style={{ fontSize: 12, lineHeight: 1.8 }}>
-                                  <div style={{ display: 'flex', gap: 8 }}>
-                                    <span style={{ color: '#6b7280' }}>总计</span>
-                                    <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.total_input_tokens.toLocaleString()}`}>
-                                      <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_input_tokens)}
-                                    </span>
-                                    <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.total_output_tokens.toLocaleString()}`}>
-                                      <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_output_tokens)}
-                                    </span>
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 8 }}>
-                                    <span style={{ color: '#6b7280' }}>今日</span>
-                                    <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.today_input_tokens.toLocaleString()}`}>
-                                      <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_input_tokens)}
-                                    </span>
-                                    <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.today_output_tokens.toLocaleString()}`}>
-                                      <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_output_tokens)}
-                                    </span>
-                                  </div>
-                                </div>
-                              )
-                            })()}
-                          </td>
-                        )}
-                        {show('status') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            <div
-                              onClick={() => handleToggle(p)}
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 6,
-                                padding: '3px 10px', borderRadius: 20, cursor: 'pointer',
-                                background: p.is_active ? '#dcfce7' : '#f3f4f6',
-                                color: p.is_active ? '#16a34a' : '#6b7280',
-                                fontSize: 12, fontWeight: 500, userSelect: 'none', transition: 'all 0.2s',
-                              }}
-                            >
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.is_active ? '#22c55e' : '#d1d5db' }} />
-                              {p.is_active ? '已启用' : '已禁用'}
-                            </div>
-                          </td>
-                        )}
-                        {show('createdAt') && (
-                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>
-                            {fmtDate(p.created_at)}
-                          </td>
-                        )}
-                        <td style={{ padding: '14px 20px' }}>
-                          <div className="d-flex gap-1">
-                            <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#1a73e8" />
-                            <IconBtn
-                              icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
-                              title="测试连通性"
-                              onClick={() => handleTest(p)}
-                              hoverColor="#0ea5e9"
-                            />
-                            <IconBtn icon="bi-grid" title="查看模型列表" onClick={() => handleModels(p)} hoverColor="#10b981" />
-                            <IconBtn icon="bi-trash" title="删除" onClick={() => setDeleteTarget(p)} hoverColor="#ef4444" />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          })()}
-
-          {/* Anthropic Group */}
-          {(() => {
-            const anthropicProviders = providers
-              .filter(p => p.type === 'anthropic')
-              .sort((a, b) => (a.priority ?? 5) - (b.priority ?? 5))
-            const tc = TYPE_CONFIG.anthropic
-            if (anthropicProviders.length === 0) return null
-            return (
-              <div style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden' }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                  padding: '14px 20px',
-                  borderBottom: '1px solid #fde68a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      background: tc.color,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <i className={`bi ${tc.icon}`} style={{ color: '#fff', fontSize: 15 }} />
-                    </div>
-                    <div>
-                      <h5 className="mb-0 fw-bold" style={{ fontSize: 15, color: '#92400e' }}>{tc.label}</h5>
-                      <p className="mb-0 text-muted" style={{ fontSize: 12 }}>Anthropic Claude 系列供应商</p>
-                    </div>
-                  </div>
-                  <span className="badge rounded-pill" style={{ background: tc.color, color: '#fff', fontSize: 12, padding: '5px 12px' }}>
-                    {anthropicProviders.length} 个
-                  </span>
-                </div>
-                <table className="table table-hover mb-0 align-middle">
-                  <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
-                    <tr>
-                      {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
-                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>{c.label}</th>
-                      ))}
-                      <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {anthropicProviders.map(p => (
-                      <tr key={p.id} style={{ borderTop: '1px solid #f3f4f6' }}>
-                        {show('priority') && (
-                          <td style={{ padding: '14px 20px', textAlign: 'center' }}>
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              width: 26, height: 26, borderRadius: 8,
-                              background: '#f8f9fa', color: '#3c4043',
-                              fontSize: 13, fontWeight: 700,
-                            }}>
-                              {p.priority ?? 5}
-                            </span>
-                          </td>
-                        )}
-                        {show('name') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            <span className="fw-semibold" style={{ fontSize: 14 }}>{p.name}</span>
-                          </td>
-                        )}
-                        {show('apiKey') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <code style={{
-                                fontSize: 12, background: '#f8f9fa', color: '#3c4043',
-                                padding: '3px 8px', borderRadius: 6, fontFamily: 'monospace',
-                                maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                              }}>
-                                {revealedKeys[p.id] === 'loading'
-                                  ? '加载中...'
-                                  : revealedKeys[p.id]
-                                    ? revealedKeys[p.id]
-                                    : `${p.api_key_prefix}···`}
-                              </code>
-                              <button
-                                title={revealedKeys[p.id] ? '隐藏' : '查看完整 Key'}
-                                onClick={() => handleRevealKey(p)}
-                                style={{
-                                  border: 'none', background: 'none', padding: '2px 4px',
-                                  cursor: 'pointer', color: '#9ca3af', fontSize: 13, lineHeight: 1, flexShrink: 0,
-                                }}
-                              >
-                                <i className={`bi ${revealedKeys[p.id] && revealedKeys[p.id] !== 'loading' ? 'bi-eye-slash' : 'bi-eye'}`} />
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                        {show('baseUrl') && (
-                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 200 }}>
-                            {p.base_url
-                              ? <span style={{ wordBreak: 'break-all' }}>{p.base_url}</span>
-                              : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>默认</span>
-                            }
-                          </td>
-                        )}
-                        {show('proxy') && (
-                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280', maxWidth: 180 }}>
-                            {p.proxy_url
-                              ? (
-                                <span style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                                  background: '#fef3c7', color: '#92400e',
-                                  borderRadius: 6, padding: '2px 8px', fontSize: 12, wordBreak: 'break-all',
-                                }}>
-                                  <i className="bi bi-hdd-network" style={{ fontSize: 11, flexShrink: 0 }} />
-                                  {p.proxy_url}
-                                </span>
-                              )
-                              : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>直连</span>
-                            }
-                          </td>
-                        )}
-                        {show('health') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            <HealthBadge p={p} />
-                          </td>
-                        )}
-                        {show('tokenStats') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            {(() => {
-                              const s = tokenStats[p.id]
-                              if (!s || (s.total_input_tokens === 0 && s.total_output_tokens === 0)) {
-                                return <span style={{ fontSize: 12, color: '#9ca3af' }}>--</span>
-                              }
-                              return (
-                                <div style={{ fontSize: 12, lineHeight: 1.8 }}>
-                                  <div style={{ display: 'flex', gap: 8 }}>
-                                    <span style={{ color: '#6b7280' }}>总计</span>
-                                    <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.total_input_tokens.toLocaleString()}`}>
-                                      <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_input_tokens)}
-                                    </span>
-                                    <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.total_output_tokens.toLocaleString()}`}>
-                                      <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.total_output_tokens)}
-                                    </span>
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 8 }}>
-                                    <span style={{ color: '#6b7280' }}>今日</span>
-                                    <span style={{ color: '#2563eb', fontWeight: 500 }} title={`输入 ${s.today_input_tokens.toLocaleString()}`}>
-                                      <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_input_tokens)}
-                                    </span>
-                                    <span style={{ color: '#16a34a', fontWeight: 500 }} title={`输出 ${s.today_output_tokens.toLocaleString()}`}>
-                                      <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(s.today_output_tokens)}
-                                    </span>
-                                  </div>
-                                </div>
-                              )
-                            })()}
-                          </td>
-                        )}
-                        {show('status') && (
-                          <td style={{ padding: '14px 20px' }}>
-                            <div
-                              onClick={() => handleToggle(p)}
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 6,
-                                padding: '3px 10px', borderRadius: 20, cursor: 'pointer',
-                                background: p.is_active ? '#dcfce7' : '#f3f4f6',
-                                color: p.is_active ? '#16a34a' : '#6b7280',
-                                fontSize: 12, fontWeight: 500, userSelect: 'none', transition: 'all 0.2s',
-                              }}
-                            >
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.is_active ? '#22c55e' : '#d1d5db' }} />
-                              {p.is_active ? '已启用' : '已禁用'}
-                            </div>
-                          </td>
-                        )}
-                        {show('createdAt') && (
-                          <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>
-                            {fmtDate(p.created_at)}
-                          </td>
-                        )}
-                        <td style={{ padding: '14px 20px' }}>
-                          <div className="d-flex gap-1">
-                            <IconBtn icon="bi-pencil" title="编辑" onClick={() => openEdit(p)} hoverColor="#1a73e8" />
-                            <IconBtn
-                              icon={testing === p.id ? 'bi-arrow-repeat' : 'bi-wifi'}
-                              title="测试连通性"
-                              onClick={() => handleTest(p)}
-                              hoverColor="#0ea5e9"
-                            />
-                            <IconBtn icon="bi-grid" title="查看模型列表" onClick={() => handleModels(p)} hoverColor="#10b981" />
-                            <IconBtn icon="bi-trash" title="删除" onClick={() => setDeleteTarget(p)} hoverColor="#ef4444" />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          })()}
+          {renderTypeSection('openai')}
+          {renderTypeSection('anthropic')}
         </div>
       )}
 
@@ -895,6 +918,23 @@ export default function ProvidersPage() {
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 />
+              </div>
+              <div className="mb-3">
+                <label className="form-label fw-semibold" style={{ fontSize: 13 }}>
+                  分组 <span className="text-muted fw-normal">（可选，仅用于页面聚合）</span>
+                </label>
+                <input
+                  className="form-control"
+                  style={{ borderRadius: 8, fontSize: 14 }}
+                  placeholder="如：生产、备用、港区"
+                  value={form.group_name ?? ''}
+                  onChange={e => setForm(f => ({ ...f, group_name: e.target.value }))}
+                />
+                {groupedFormMode && (
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6 }}>
+                    当前分组已存在，优先级和启用状态将继承分组配置。
+                  </div>
+                )}
               </div>
               <div className="mb-3">
                 <label className="form-label fw-semibold" style={{ fontSize: 13 }}>类型</label>
@@ -966,8 +1006,9 @@ export default function ProvidersPage() {
                   <input
                     type="range"
                     min={1} max={10} step={1}
-                    style={{ flex: 1, accentColor: '#1a73e8' }}
-                    value={form.priority ?? 5}
+                    style={{ flex: 1, accentColor: '#1a73e8', opacity: groupedFormMode ? 0.5 : 1 }}
+                    value={existingGroupLeader ? existingGroupLeader.priority : (form.priority ?? 5)}
+                    disabled={groupedFormMode}
                     onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) }))}
                   />
                   <span style={{
@@ -976,7 +1017,7 @@ export default function ProvidersPage() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontWeight: 700, fontSize: 15,
                   }}>
-                    {form.priority ?? 5}
+                    {existingGroupLeader ? existingGroupLeader.priority : (form.priority ?? 5)}
                   </span>
                 </div>
               </div>
@@ -1010,27 +1051,28 @@ export default function ProvidersPage() {
                 </div>
               </div>
               <div
-                onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+                onClick={() => { if (!groupedFormMode) setForm(f => ({ ...f, is_active: !f.is_active })) }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                  border: `1px solid ${form.is_active ? '#86efac' : '#e8eaed'}`,
-                  background: form.is_active ? '#f0fdf4' : '#f8f9fa',
+                  padding: '10px 14px', borderRadius: 10, cursor: groupedFormMode ? 'default' : 'pointer',
+                  border: `1px solid ${(existingGroupLeader ? existingGroupLeader.is_active : form.is_active) ? '#86efac' : '#e8eaed'}`,
+                  background: (existingGroupLeader ? existingGroupLeader.is_active : form.is_active) ? '#f0fdf4' : '#f8f9fa',
                   userSelect: 'none', transition: 'all 0.15s',
+                  opacity: groupedFormMode ? 0.7 : 1,
                 }}
               >
                 <div style={{
                   width: 36, height: 20, borderRadius: 10, position: 'relative',
-                  background: form.is_active ? '#22c55e' : '#d1d5db', transition: 'background 0.2s',
+                  background: (existingGroupLeader ? existingGroupLeader.is_active : form.is_active) ? '#22c55e' : '#d1d5db', transition: 'background 0.2s',
                 }}>
                   <div style={{
-                    position: 'absolute', top: 2, left: form.is_active ? 18 : 2,
+                    position: 'absolute', top: 2, left: (existingGroupLeader ? existingGroupLeader.is_active : form.is_active) ? 18 : 2,
                     width: 16, height: 16, borderRadius: '50%', background: '#fff',
                     transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                   }} />
                 </div>
-                <span style={{ fontSize: 14, fontWeight: 500, color: form.is_active ? '#16a34a' : '#6b7280' }}>
-                  {form.is_active ? '创建后立即启用' : '创建后暂不启用'}
+                <span style={{ fontSize: 14, fontWeight: 500, color: (existingGroupLeader ? existingGroupLeader.is_active : form.is_active) ? '#16a34a' : '#6b7280' }}>
+                  {(existingGroupLeader ? existingGroupLeader.is_active : form.is_active) ? '创建后立即启用' : '创建后暂不启用'}
                 </span>
               </div>
             </div>
@@ -1148,6 +1190,67 @@ export default function ProvidersPage() {
                 onClick={handleDelete}
               >
                 确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {priorityDialog && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1060,
+          }}
+          onClick={() => setPriorityDialog(null)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 8, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="d-flex align-items-center gap-3 mb-3">
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: '#e8f0fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <i className="bi bi-sliders" style={{ color: '#1a73e8', fontSize: 18 }} />
+              </div>
+              <h5 className="mb-0 fw-bold" style={{ fontSize: 16 }}>修改分组优先级</h5>
+            </div>
+            <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
+              将该分组内所有 upstream 的优先级统一设置为：
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={priorityDialog.value}
+                onChange={e => setPriorityDialog(d => d ? { ...d, value: Number(e.target.value) } : d)}
+                style={{ flex: 1, accentColor: '#1a73e8' }}
+              />
+              <span style={{
+                minWidth: 36, height: 36, borderRadius: 10,
+                background: '#e8f0fe', color: '#1a73e8',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: 16,
+              }}>
+                {priorityDialog.value}
+              </span>
+            </div>
+            <div className="d-flex gap-2">
+              <button
+                className="btn flex-grow-1"
+                style={{ borderRadius: 8, border: '1px solid #e8eaed', fontSize: 14 }}
+                onClick={() => setPriorityDialog(null)}
+              >
+                取消
+              </button>
+              <button
+                className="btn flex-grow-1"
+                style={{ borderRadius: 8, background: '#1a73e8', border: 'none', color: '#fff', fontSize: 14 }}
+                onClick={submitGroupPriorityDialog}
+                disabled={groupSavingKey === priorityDialog.key}
+              >
+                {groupSavingKey === priorityDialog.key ? '保存中...' : '确认修改'}
               </button>
             </div>
           </div>

@@ -118,6 +118,7 @@ export const logsApi = {
 export interface ProviderOut {
   id: number
   name: string
+  group_name: string | null
   type: 'openai' | 'anthropic'
   api_key_prefix: string
   base_url: string | null
@@ -134,6 +135,7 @@ export interface ProviderOut {
 
 export interface ProviderCreate {
   name: string
+  group_name?: string | null
   type: 'openai' | 'anthropic'
   api_key: string
   base_url?: string
@@ -145,6 +147,7 @@ export interface ProviderCreate {
 
 export interface ProviderUpdate {
   name?: string
+  group_name?: string | null
   type?: 'openai' | 'anthropic'
   api_key?: string
   base_url?: string

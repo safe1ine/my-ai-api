@@ -20,6 +20,7 @@ class Provider(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    group_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     type: Mapped[ProviderType] = mapped_column(SAEnum(ProviderType), nullable=False)
     api_key: Mapped[str] = mapped_column(String(500), nullable=False)
     base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)

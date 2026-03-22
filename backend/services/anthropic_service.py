@@ -132,8 +132,24 @@ async def list_models(api_key: str, base_url: str | None, proxy_url: str | None 
     return sorted(m["id"] for m in data.get("data", []))
 
 
+async def _check_stream_response(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: dict,
+    payload: dict,
+) -> tuple[bool, str | None]:
+    async with client.stream("POST", url, json={**payload, "stream": True}, headers=headers) as resp:
+        if resp.status_code != 200:
+            body = await resp.aread()
+            return False, f"HTTP {resp.status_code}: {body.decode('utf-8', errors='ignore')[:200]}"
+        async for chunk in resp.aiter_bytes():
+            if chunk.strip():
+                return True, None
+        return False, "流式响应为空"
+
+
 async def test_connection(api_key: str, base_url: str | None, proxy_url: str | None = None) -> tuple[bool, str | None, int]:
-    """测试 Anthropic API 连通性，返回 (success, error_message, latency_ms)"""
+    """测试 Anthropic API 连通性，先流式探活，失败后回退非流式"""
     url = _build_url(base_url, "/v1/messages")
     payload = {
         "model": "claude-haiku-4-5-20251001",
@@ -143,13 +159,19 @@ async def test_connection(api_key: str, base_url: str | None, proxy_url: str | N
     start = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
+            stream_ok, stream_error = await _check_stream_response(client, url, _build_headers(api_key), payload)
+            latency_ms = int((time.monotonic() - start) * 1000)
+            if stream_ok:
+                return True, None, latency_ms
             resp = await client.post(url, json=payload, headers=_build_headers(api_key))
             latency_ms = int((time.monotonic() - start) * 1000)
             if resp.status_code != 200:
-                return False, f"HTTP {resp.status_code}: {resp.text[:200]}", latency_ms
+                suffix = f"; stream={stream_error}" if stream_error else ""
+                return False, f"HTTP {resp.status_code}: {resp.text[:200]}{suffix}", latency_ms
             data = resp.json()
             if not data.get("content"):
-                return False, "响应中没有 content 字段", latency_ms
+                suffix = f"; stream={stream_error}" if stream_error else ""
+                return False, f"响应中没有 content 字段{suffix}", latency_ms
             return True, None, latency_ms
     except Exception as e:
         latency_ms = int((time.monotonic() - start) * 1000)

@@ -77,8 +77,24 @@ async def list_models(api_key: str, base_url: str | None, proxy_url: str | None 
     return sorted(m["id"] for m in data.get("data", []))
 
 
+async def _check_stream_response(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: dict,
+    payload: dict,
+) -> tuple[bool, str | None]:
+    async with client.stream("POST", url, json={**payload, "stream": True}, headers=headers) as resp:
+        if resp.status_code != 200:
+            body = await resp.aread()
+            return False, f"HTTP {resp.status_code}: {body.decode('utf-8', errors='ignore')[:200]}"
+        async for chunk in resp.aiter_bytes():
+            if chunk.strip():
+                return True, None
+        return False, "流式响应为空"
+
+
 async def test_connection(api_key: str, base_url: str | None, proxy_url: str | None = None) -> tuple[bool, str | None, int]:
-    """测试 OpenAI API 连通性，优先 responses，失败后回退 chat/completions"""
+    """测试 OpenAI API 连通性，先流式探活，失败后回退非流式"""
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     checks = [
         (
@@ -101,15 +117,22 @@ async def test_connection(api_key: str, base_url: str | None, proxy_url: str | N
         for route_name, url, payload, success_field in checks:
             start = time.monotonic()
             try:
+                stream_ok, stream_error = await _check_stream_response(client, url, headers, payload)
+                latency_ms = int((time.monotonic() - start) * 1000)
+                last_latency_ms = latency_ms
+                if stream_ok:
+                    return True, None, latency_ms
                 resp = await client.post(url, json=payload, headers=headers)
                 latency_ms = int((time.monotonic() - start) * 1000)
                 last_latency_ms = latency_ms
                 if resp.status_code != 200:
-                    last_error = f"{route_name}: HTTP {resp.status_code}: {resp.text[:200]}"
+                    suffix = f"; stream={stream_error}" if stream_error else ""
+                    last_error = f"{route_name}: HTTP {resp.status_code}: {resp.text[:200]}{suffix}"
                     continue
                 data = resp.json()
                 if not data.get(success_field):
-                    last_error = f"{route_name}: 响应中没有 {success_field} 字段"
+                    suffix = f"; stream={stream_error}" if stream_error else ""
+                    last_error = f"{route_name}: 响应中没有 {success_field} 字段{suffix}"
                     continue
                 return True, None, latency_ms
             except Exception as e:

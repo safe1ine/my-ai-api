@@ -115,8 +115,8 @@ def _upstream_headers(vendor: str, provider: Provider, req_headers: dict) -> dic
 
 def _normalize_path(path: str) -> str:
     """去除可能的 v1/ 前缀，得到裸路径用于日志判断"""
-    p = path.lstrip("/")
-    return p[3:] if p.startswith("v1/") else p
+    p = path.strip("/")
+    return p[3:].strip("/") if p.startswith("v1/") else p
 
 
 def _should_log(vendor: str, path: str) -> bool:
@@ -369,8 +369,6 @@ async def _proxy(request: Request, vendor: str, path: str,
             )
             raise HTTPException(status_code=429, detail="Token 用量已达上限")
 
-    provider_list = _pick_providers(db, ptype)
-
     body = await request.body()
     params = dict(request.query_params)
     do_log = _should_log(vendor, path)
@@ -390,6 +388,28 @@ async def _proxy(request: Request, vendor: str, path: str,
                 system_prompt, request_summary = extract_prompt_summary(msgs, sys) if (msgs or sys) else (None, None)
         except Exception:
             pass
+
+    try:
+        provider_list = _pick_providers(db, ptype)
+    except HTTPException as exc:
+        if do_log:
+            _write_log(db,
+                provider_id=None,
+                client_key_id=client_key.id,
+                model=req_body_json.get("model", ""),
+                key_name=client_key.name,
+                input_tokens=0,
+                output_tokens=0,
+                total_tokens=0,
+                status=LogStatus.error,
+                latency_ms=0,
+                first_token_latency_ms=0,
+                system_prompt=system_prompt,
+                request_summary=request_summary,
+                error_message=str(exc.detail),
+                client_ip=client_ip,
+            )
+        raise
 
     is_stream = bool(req_body_json.get("stream"))
 

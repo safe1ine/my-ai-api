@@ -68,13 +68,27 @@ interface Params {
   apiKey: string
 }
 
+type OpenAiFormat = 'responses' | 'chat'
+
 function escStr(s: string) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'") }
 
-function buildOpenAiBody(p: Params, model: string) {
-  const msgs: object[] = []
-  if (p.system.trim()) msgs.push({ role: 'system', content: p.system })
-  msgs.push({ role: 'user', content: p.user || '你好' })
-  const body: Record<string, unknown> = { model, messages: msgs }
+function buildOpenAiResponsesBody(p: Params, model: string) {
+  const input = p.system.trim()
+    ? [
+        { role: 'system', content: [{ type: 'input_text', text: p.system }] },
+        { role: 'user', content: [{ type: 'input_text', text: p.user || '你好' }] },
+      ]
+    : p.user || '你好'
+  const body: Record<string, unknown> = { model, input }
+  if (p.stream) body.stream = true
+  return body
+}
+
+function buildOpenAiChatBody(p: Params, model: string) {
+  const messages: object[] = []
+  if (p.system.trim()) messages.push({ role: 'system', content: p.system })
+  messages.push({ role: 'user', content: p.user || '你好' })
+  const body: Record<string, unknown> = { model, messages }
   if (p.stream) body.stream = true
   return body
 }
@@ -87,11 +101,12 @@ function buildAnthropicBody(p: Params, model: string) {
   return body
 }
 
-function genOpenAiCurl(p: Params, model: string) {
-  const body = buildOpenAiBody(p, model)
+function genOpenAiCurl(p: Params, model: string, format: OpenAiFormat) {
+  const body = format === 'responses' ? buildOpenAiResponsesBody(p, model) : buildOpenAiChatBody(p, model)
   const key = p.apiKey || 'YOUR_API_KEY'
+  const endpoint = format === 'responses' ? 'responses' : 'chat/completions'
   const lines = [
-    `curl ${BASE_URL}/api/openai/chat/completions \\`,
+    `curl ${BASE_URL}/api/openai/${endpoint} \\`,
     `  -H "Authorization: Bearer ${escStr(key)}" \\`,
     `  -H "Content-Type: application/json" \\`,
     ...(p.stream ? [`  --no-buffer \\`] : []),
@@ -100,14 +115,21 @@ function genOpenAiCurl(p: Params, model: string) {
   return lines.join('\n')
 }
 
-function genOpenAiPython(p: Params, model: string) {
+function genOpenAiPython(p: Params, model: string, format: OpenAiFormat) {
   const key = p.apiKey || 'YOUR_API_KEY'
-  const msgs: string[] = []
-  if (p.system.trim()) msgs.push(`        {"role": "system", "content": ${JSON.stringify(p.system)}},`)
-  msgs.push(`        {"role": "user", "content": ${JSON.stringify(p.user || '你好')}},`)
+  const responsesInputArg = p.system.trim()
+    ? `[
+        {"role": "system", "content": [{"type": "input_text", "text": ${JSON.stringify(p.system)}}]},
+        {"role": "user", "content": [{"type": "input_text", "text": ${JSON.stringify(p.user || '你好')}}]},
+    ]`
+    : JSON.stringify(p.user || '你好')
+  const chatMessages: string[] = []
+  if (p.system.trim()) chatMessages.push(`        {"role": "system", "content": ${JSON.stringify(p.system)}},`)
+  chatMessages.push(`        {"role": "user", "content": ${JSON.stringify(p.user || '你好')}},`)
 
-  if (p.stream) {
-    return `from openai import OpenAI
+  if (format === 'chat') {
+    if (p.stream) {
+      return `from openai import OpenAI
 
 client = OpenAI(
     base_url="${BASE_URL}/api/openai",
@@ -117,13 +139,13 @@ client = OpenAI(
 with client.chat.completions.stream(
     model=${JSON.stringify(model)},
     messages=[
-${msgs.join('\n')}
+${chatMessages.join('\n')}
     ],
 ) as stream:
     for text in stream.text_stream:
         print(text, end="", flush=True)`
-  }
-  return `from openai import OpenAI
+    }
+    return `from openai import OpenAI
 
 client = OpenAI(
     base_url="${BASE_URL}/api/openai",
@@ -133,20 +155,57 @@ client = OpenAI(
 response = client.chat.completions.create(
     model=${JSON.stringify(model)},
     messages=[
-${msgs.join('\n')}
+${chatMessages.join('\n')}
     ],
 )
 print(response.choices[0].message.content)`
-}
-
-function genOpenAiJs(p: Params, model: string) {
-  const key = p.apiKey || 'YOUR_API_KEY'
-  const msgs: string[] = []
-  if (p.system.trim()) msgs.push(`    { role: "system", content: ${JSON.stringify(p.system)} },`)
-  msgs.push(`    { role: "user", content: ${JSON.stringify(p.user || '你好')} },`)
+  }
 
   if (p.stream) {
-    return `import OpenAI from "openai";
+    return `from openai import OpenAI
+
+client = OpenAI(
+    base_url="${BASE_URL}/api/openai",
+    api_key=${JSON.stringify(key)},
+)
+
+with client.responses.stream(
+    model=${JSON.stringify(model)},
+    input=${responsesInputArg},
+) as stream:
+    for event in stream:
+        if event.type == "response.output_text.delta":
+            print(event.delta, end="", flush=True)`
+  }
+  return `from openai import OpenAI
+
+client = OpenAI(
+    base_url="${BASE_URL}/api/openai",
+    api_key=${JSON.stringify(key)},
+)
+
+response = client.responses.create(
+    model=${JSON.stringify(model)},
+    input=${responsesInputArg},
+)
+print(response.output_text)`
+}
+
+function genOpenAiJs(p: Params, model: string, format: OpenAiFormat) {
+  const key = p.apiKey || 'YOUR_API_KEY'
+  const responsesInputArg = p.system.trim()
+    ? `[
+    { role: "system", content: [{ type: "input_text", text: ${JSON.stringify(p.system)} }] },
+    { role: "user", content: [{ type: "input_text", text: ${JSON.stringify(p.user || '你好')} }] },
+]`
+    : JSON.stringify(p.user || '你好')
+  const chatMessages: string[] = []
+  if (p.system.trim()) chatMessages.push(`    { role: "system", content: ${JSON.stringify(p.system)} },`)
+  chatMessages.push(`    { role: "user", content: ${JSON.stringify(p.user || '你好')} },`)
+
+  if (format === 'chat') {
+    if (p.stream) {
+      return `import OpenAI from "openai";
 
 const client = new OpenAI({
   baseURL: "${BASE_URL}/api/openai",
@@ -157,15 +216,15 @@ const stream = await client.chat.completions.create({
   model: ${JSON.stringify(model)},
   stream: true,
   messages: [
-${msgs.join('\n')}
+${chatMessages.join('\n')}
   ],
 });
 
 for await (const chunk of stream) {
   process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
 }`
-  }
-  return `import OpenAI from "openai";
+    }
+    return `import OpenAI from "openai";
 
 const client = new OpenAI({
   baseURL: "${BASE_URL}/api/openai",
@@ -175,10 +234,43 @@ const client = new OpenAI({
 const response = await client.chat.completions.create({
   model: ${JSON.stringify(model)},
   messages: [
-${msgs.join('\n')}
+${chatMessages.join('\n')}
   ],
 });
 console.log(response.choices[0].message.content);`
+  }
+
+  if (p.stream) {
+    return `import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "${BASE_URL}/api/openai",
+  apiKey: ${JSON.stringify(key)},
+});
+
+const stream = await client.responses.stream({
+  model: ${JSON.stringify(model)},
+  input: ${responsesInputArg},
+});
+
+for await (const event of stream) {
+  if (event.type === "response.output_text.delta") {
+    process.stdout.write(event.delta);
+  }
+}`
+  }
+  return `import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "${BASE_URL}/api/openai",
+  apiKey: ${JSON.stringify(key)},
+});
+
+const response = await client.responses.create({
+  model: ${JSON.stringify(model)},
+  input: ${responsesInputArg},
+});
+console.log(response.output_text);`
 }
 
 function genAnthropicCurl(p: Params, model: string) {
@@ -305,6 +397,7 @@ export default function DocsPage() {
   const [stream, setStream] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [openaiModel, setOpenaiModel] = useState(OPENAI_MODELS[0])
+  const [openaiFormat, setOpenaiFormat] = useState<OpenAiFormat>('responses')
   const [anthropicModel, setAnthropicModel] = useState(ANTHROPIC_MODELS[0])
 
   const params: Params = { system, user, stream, apiKey }
@@ -429,19 +522,43 @@ export default function DocsPage() {
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>OpenAI 兼容接口</div>
-              <div style={{ fontSize: 12, color: '#9ca3af' }}>支持 GPT-4o、o1、o3 等模型</div>
+              <div style={{ fontSize: 12, color: '#9ca3af' }}>同时支持 Responses 和 Chat Completions</div>
             </div>
           </div>
-          <select
-            value={openaiModel}
-            onChange={e => setOpenaiModel(e.target.value)}
-            style={{
-              padding: '5px 10px', borderRadius: 7, border: '1px solid #e5e7eb',
-              fontSize: 13, color: '#374151', background: '#fff', cursor: 'pointer',
-            }}
-          >
-            {OPENAI_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', background: '#f9fafb' }}>
+              {([
+                { value: 'responses', label: 'Responses' },
+                { value: 'chat', label: 'Chat' },
+              ] as const).map(item => (
+                <button
+                  key={item.value}
+                  onClick={() => setOpenaiFormat(item.value)}
+                  style={{
+                    padding: '6px 12px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    background: openaiFormat === item.value ? '#fff' : 'transparent',
+                    color: openaiFormat === item.value ? '#111827' : '#6b7280',
+                    fontWeight: openaiFormat === item.value ? 600 : 400,
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <select
+              value={openaiModel}
+              onChange={e => setOpenaiModel(e.target.value)}
+              style={{
+                padding: '5px 10px', borderRadius: 7, border: '1px solid #e5e7eb',
+                fontSize: 13, color: '#374151', background: '#fff', cursor: 'pointer',
+              }}
+            >
+              {OPENAI_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14, fontSize: 13 }}>
@@ -451,7 +568,7 @@ export default function DocsPage() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ color: '#9ca3af', width: 64, flexShrink: 0 }}>Endpoint</span>
-            <code style={urlStyle}>{BASE_URL}/api/openai/chat/completions</code>
+            <code style={urlStyle}>{BASE_URL}/api/openai/{openaiFormat === 'responses' ? 'responses' : 'chat/completions'}</code>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ color: '#9ca3af', width: 64, flexShrink: 0 }}>Auth</span>
@@ -460,9 +577,9 @@ export default function DocsPage() {
         </div>
 
         <TabGroup tabs={[
-          { label: 'cURL', icon: 'bi-terminal', content: <CodeBlock code={genOpenAiCurl(params, openaiModel)} /> },
-          { label: 'Python', icon: 'bi-filetype-py', content: <CodeBlock code={genOpenAiPython(params, openaiModel)} /> },
-          { label: 'JavaScript', icon: 'bi-filetype-js', content: <CodeBlock code={genOpenAiJs(params, openaiModel)} /> },
+          { label: 'cURL', icon: 'bi-terminal', content: <CodeBlock code={genOpenAiCurl(params, openaiModel, openaiFormat)} /> },
+          { label: 'Python', icon: 'bi-filetype-py', content: <CodeBlock code={genOpenAiPython(params, openaiModel, openaiFormat)} /> },
+          { label: 'JavaScript', icon: 'bi-filetype-js', content: <CodeBlock code={genOpenAiJs(params, openaiModel, openaiFormat)} /> },
         ]} />
       </div>
 

@@ -4,7 +4,7 @@
 - ANY /api/anthropic/{path:path} → 上游 Anthropic base_url + /v1/{path}
 
 只有以下路径写入 api_logs：
-  openai:    chat/completions
+  openai:    responses, chat/completions
   anthropic: messages
 """
 import json
@@ -37,7 +37,7 @@ _SKIP_RESP = frozenset({"transfer-encoding", "connection", "keep-alive",
 
 # 仅这些路径记录到日志表
 _LOG_PATHS = {
-    "openai": {"chat/completions"},
+    "openai": {"responses", "chat/completions"},
     "anthropic": {"messages"},
 }
 
@@ -130,8 +130,36 @@ def _write_log(db: Session, is_stream: bool = False, **kwargs):
 
 # ── 通用日志解析 ────────────────────────────────────────────────────────────
 
-def _parse_openai_stream_log(chunks: list[bytes]) -> dict:
-    """从 OpenAI SSE 块中提取 token 数和响应摘要"""
+def _extract_openai_request_summary(req_body_json: dict) -> tuple[str | None, str | None]:
+    """兼容 Chat Completions 和 Responses 两种 OpenAI 请求体的摘要提取"""
+    msgs = req_body_json.get("messages", [])
+    sys = req_body_json.get("system")
+    if msgs or sys:
+        return extract_prompt_summary(msgs, sys)
+
+    input_value = req_body_json.get("input")
+    if isinstance(input_value, str):
+        return None, extract_response_summary(input_value)
+    if isinstance(input_value, list):
+        pseudo_messages = []
+        for item in input_value:
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role", "user")
+            content = item.get("content", "")
+            if isinstance(content, list):
+                normalized_blocks = []
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") in {"input_text", "text"}:
+                        normalized_blocks.append({"type": "text", "text": block.get("text", "")})
+                pseudo_messages.append({"role": role, "content": normalized_blocks})
+            else:
+                pseudo_messages.append({"role": role, "content": content})
+        return extract_prompt_summary(pseudo_messages, None)
+    return None, None
+
+def _parse_openai_responses_stream_log(chunks: list[bytes]) -> dict:
+    """从 OpenAI Responses SSE 块中提取 token 数和响应摘要"""
     text = b"".join(chunks).decode("utf-8", errors="replace")
     input_tokens = output_tokens = cache_read = cache_write = 0
     response_parts: list[str] = []
@@ -145,12 +173,48 @@ def _parse_openai_stream_log(chunks: list[bytes]) -> dict:
             continue
         try:
             d = json.loads(json_str)
+            event_type = d.get("type")
+            if event_type == "response.output_text.delta":
+                delta = d.get("delta") or ""
+                if delta:
+                    response_parts.append(delta)
+            response_obj = d.get("response") if isinstance(d.get("response"), dict) else d
+            if response_obj.get("usage"):
+                u = response_obj["usage"]
+                input_tokens = u.get("input_tokens", input_tokens)
+                output_tokens = u.get("output_tokens", output_tokens)
+                details = u.get("input_tokens_details") or {}
+                cache_read = details.get("cached_tokens", cache_read)
+        except Exception:
+            pass
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cache_read_tokens": cache_read,
+        "cache_write_tokens": cache_write,
+        "response_summary": extract_response_summary("".join(response_parts)) if response_parts else None,
+    }
+
+
+def _parse_openai_chat_stream_log(chunks: list[bytes]) -> dict:
+    """从 OpenAI Chat Completions SSE 块中提取 token 数和响应摘要"""
+    text = b"".join(chunks).decode("utf-8", errors="replace")
+    input_tokens = output_tokens = cache_read = cache_write = 0
+    response_parts: list[str] = []
+    for line in text.splitlines():
+        if not line.startswith("data:"):
+            continue
+        json_str = line[5:].lstrip()
+        if json_str.strip() == "[DONE]":
+            continue
+        try:
+            d = json.loads(json_str)
             if d.get("usage"):
                 u = d["usage"]
-                input_tokens = u.get("prompt_tokens", 0)
-                output_tokens = u.get("completion_tokens", 0)
+                input_tokens = u.get("prompt_tokens", input_tokens)
+                output_tokens = u.get("completion_tokens", output_tokens)
                 details = u.get("prompt_tokens_details") or {}
-                cache_read = details.get("cached_tokens", 0)
+                cache_read = details.get("cached_tokens", cache_read)
             for choice in d.get("choices", []):
                 content = choice.get("delta", {}).get("content") or ""
                 if content:
@@ -284,6 +348,7 @@ def _inject_anthropic_cache(req: dict) -> dict:
 async def _proxy(request: Request, vendor: str, path: str,
                  db: Session, client_key):
     ptype = ProviderType.openai if vendor == "openai" else ProviderType.anthropic
+    normalized_path = _normalize_path(path)
 
     # 用量上限校验（在选 provider 之前）
     if client_key.token_limit is not None and _should_log(vendor, path):
@@ -317,16 +382,19 @@ async def _proxy(request: Request, vendor: str, path: str,
     if do_log and body:
         try:
             req_body_json = json.loads(body)
-            msgs = req_body_json.get("messages", [])
-            sys = req_body_json.get("system")
-            system_prompt, request_summary = extract_prompt_summary(msgs, sys) if (msgs or sys) else (None, None)
+            if vendor == "openai":
+                system_prompt, request_summary = _extract_openai_request_summary(req_body_json)
+            else:
+                msgs = req_body_json.get("messages", [])
+                sys = req_body_json.get("system")
+                system_prompt, request_summary = extract_prompt_summary(msgs, sys) if (msgs or sys) else (None, None)
         except Exception:
             pass
 
     is_stream = bool(req_body_json.get("stream"))
 
-    # OpenAI 流式：注入 stream_options 使最后一个 chunk 带 usage
-    if is_stream and vendor == "openai" and do_log:
+    # Chat Completions 流式：注入 stream_options 使最后一个 chunk 带 usage
+    if is_stream and vendor == "openai" and _normalize_path(path) == "chat/completions" and do_log:
         try:
             patched = json.loads(body)
             patched.setdefault("stream_options", {})["include_usage"] = True
@@ -335,7 +403,7 @@ async def _proxy(request: Request, vendor: str, path: str,
             pass
 
     # Anthropic：自动注入 cache_control
-    if vendor == "anthropic" and _normalize_path(path) == "messages":
+    if vendor == "anthropic" and normalized_path == "messages":
         try:
             body = json.dumps(_inject_anthropic_cache(json.loads(body))).encode()
         except Exception:
@@ -400,8 +468,12 @@ async def _proxy(request: Request, vendor: str, path: str,
                         await http_client.aclose()
                         if do_log:
                             total_ms = int((time.monotonic() - start) * 1000)
-                            parser = (_parse_openai_stream_log if vendor == "openai"
-                                      else _parse_anthropic_stream_log)
+                            if vendor == "openai":
+                                parser = (_parse_openai_chat_stream_log
+                                          if normalized_path == "chat/completions"
+                                          else _parse_openai_responses_stream_log)
+                            else:
+                                parser = _parse_anthropic_stream_log
                             parsed = parser(collected)
                             # 成功条件：有输出 token、有响应摘要、或有 thinking 内容
                             has_content = parsed["output_tokens"] > 0 or parsed["response_summary"] or parsed.get("has_thinking", False)
@@ -466,17 +538,30 @@ async def _proxy(request: Request, vendor: str, path: str,
                     status = LogStatus.error
                     try:
                         rj = resp.json()
+                        usage = rj.get("usage", {})
                         if vendor == "openai":
-                            usage = rj.get("usage", {})
-                            in_tok = usage.get("prompt_tokens", 0)
-                            out_tok = usage.get("completion_tokens", 0)
-                            details = usage.get("prompt_tokens_details") or {}
-                            cache_read = details.get("cached_tokens", 0)
-                            content = rj.get("choices", [{}])[0].get("message", {}).get("content", "")
-                            response_summary = extract_response_summary(content)
-                            status = LogStatus.success if resp.status_code == 200 and bool(rj.get("choices")) else LogStatus.error
+                            if normalized_path == "chat/completions":
+                                in_tok = usage.get("prompt_tokens", 0)
+                                out_tok = usage.get("completion_tokens", 0)
+                                details = usage.get("prompt_tokens_details") or {}
+                                cache_read = details.get("cached_tokens", 0)
+                                content = rj.get("choices", [{}])[0].get("message", {}).get("content", "")
+                                response_summary = extract_response_summary(content)
+                                status = LogStatus.success if resp.status_code == 200 and bool(rj.get("choices")) else LogStatus.error
+                            else:
+                                in_tok = usage.get("input_tokens", 0)
+                                out_tok = usage.get("output_tokens", 0)
+                                details = usage.get("input_tokens_details") or {}
+                                cache_read = details.get("cached_tokens", 0)
+                                output_items = rj.get("output", [])
+                                text_parts: list[str] = []
+                                for item in output_items:
+                                    for block in item.get("content", []):
+                                        if block.get("type") in {"output_text", "text"}:
+                                            text_parts.append(block.get("text", ""))
+                                response_summary = extract_response_summary("".join(text_parts))
+                                status = LogStatus.success if resp.status_code == 200 and bool(output_items) else LogStatus.error
                         else:
-                            usage = rj.get("usage", {})
                             in_tok = usage.get("input_tokens", 0)
                             out_tok = usage.get("output_tokens", 0)
                             cache_read = usage.get("cache_read_input_tokens", 0)

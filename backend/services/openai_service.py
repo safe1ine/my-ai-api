@@ -1,13 +1,15 @@
-"""OpenAI API 调用服务（支持流式和非流式）"""
+"""OpenAI API 调用服务（默认使用 Responses API）"""
 import time
 import httpx
 from typing import AsyncIterator
 
 
 OPENAI_BASE_URL = "https://api.openai.com"
+OPENAI_RESPONSES_PATH = "/v1/responses"
+OPENAI_CHAT_PATH = "/v1/chat/completions"
 
 
-async def call_chat_completions(
+async def call_responses(
     api_key: str,
     base_url: str | None,
     payload: dict,
@@ -15,7 +17,7 @@ async def call_chat_completions(
     """
     非流式调用，返回 (response_json, input_tokens, output_tokens, latency_ms)
     """
-    url = (base_url or OPENAI_BASE_URL).rstrip("/") + "/v1/chat/completions"
+    url = (base_url or OPENAI_BASE_URL).rstrip("/") + OPENAI_RESPONSES_PATH
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -30,12 +32,12 @@ async def call_chat_completions(
 
     latency_ms = int((time.monotonic() - start) * 1000)
     usage = data.get("usage", {})
-    input_tokens = usage.get("prompt_tokens", 0)
-    output_tokens = usage.get("completion_tokens", 0)
+    input_tokens = usage.get("input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
     return data, input_tokens, output_tokens, latency_ms
 
 
-async def stream_chat_completions(
+async def stream_responses(
     api_key: str,
     base_url: str | None,
     payload: dict,
@@ -43,7 +45,7 @@ async def stream_chat_completions(
     """
     流式调用，yield SSE 字节块
     """
-    url = (base_url or OPENAI_BASE_URL).rstrip("/") + "/v1/chat/completions"
+    url = (base_url or OPENAI_BASE_URL).rstrip("/") + OPENAI_RESPONSES_PATH
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -69,25 +71,42 @@ async def list_models(api_key: str, base_url: str | None, proxy_url: str | None 
 
 
 async def test_connection(api_key: str, base_url: str | None, proxy_url: str | None = None) -> tuple[bool, str | None, int]:
-    """测试 OpenAI API 连通性，返回 (success, error_message, latency_ms)"""
-    url = (base_url or OPENAI_BASE_URL).rstrip("/") + "/v1/chat/completions"
+    """测试 OpenAI API 连通性，优先 responses，失败后回退 chat/completions"""
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": [{"role": "user", "content": "hi"}],
-        "max_tokens": 1,
-    }
-    start = time.monotonic()
-    try:
-        async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            latency_ms = int((time.monotonic() - start) * 1000)
-            if resp.status_code != 200:
-                return False, f"HTTP {resp.status_code}: {resp.text[:200]}", latency_ms
-            data = resp.json()
-            if not data.get("choices"):
-                return False, "响应中没有 choices 字段", latency_ms
-            return True, None, latency_ms
-    except Exception as e:
-        latency_ms = int((time.monotonic() - start) * 1000)
-        return False, str(e), latency_ms
+    checks = [
+        (
+            "responses",
+            (base_url or OPENAI_BASE_URL).rstrip("/") + OPENAI_RESPONSES_PATH,
+            {"model": "gpt-4o-mini", "input": "hi", "max_output_tokens": 1},
+            "output",
+        ),
+        (
+            "chat/completions",
+            (base_url or OPENAI_BASE_URL).rstrip("/") + OPENAI_CHAT_PATH,
+            {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1},
+            "choices",
+        ),
+    ]
+
+    last_error = None
+    last_latency_ms = 0
+    async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
+        for route_name, url, payload, success_field in checks:
+            start = time.monotonic()
+            try:
+                resp = await client.post(url, json=payload, headers=headers)
+                latency_ms = int((time.monotonic() - start) * 1000)
+                last_latency_ms = latency_ms
+                if resp.status_code != 200:
+                    last_error = f"{route_name}: HTTP {resp.status_code}: {resp.text[:200]}"
+                    continue
+                data = resp.json()
+                if not data.get(success_field):
+                    last_error = f"{route_name}: 响应中没有 {success_field} 字段"
+                    continue
+                return True, None, latency_ms
+            except Exception as e:
+                last_latency_ms = int((time.monotonic() - start) * 1000)
+                last_error = f"{route_name}: {e}"
+                continue
+    return False, last_error, last_latency_ms

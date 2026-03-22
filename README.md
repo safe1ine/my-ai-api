@@ -32,22 +32,27 @@ npm run dev
 
 | 接口 | 说明 |
 |------|------|
-| `POST /v1/chat/completions` | OpenAI 兼容接口（自动路由到 OpenAI 或 Anthropic） |
+| `POST /api/openai/responses` | OpenAI Responses 透传接口 |
+| `POST /api/openai/chat/completions` | OpenAI Chat Completions 透传接口 |
 | `POST /v1/messages` | Anthropic 原生接口 |
-
-模型路由规则：模型名以 `claude` 开头 → Anthropic 供应商；否则 → OpenAI 供应商。
 
 ### 测试代理
 
 ```bash
 # 调用 GPT 模型（需配置 OpenAI 供应商）
-curl -X POST http://localhost:8000/v1/chat/completions \
+curl -X POST http://localhost:8000/api/openai/responses \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-client-key" \
+  -d '{"model":"gpt-4o","input":"Hello"}'
+
+# 或使用 Chat Completions 结构
+curl -X POST http://localhost:8000/api/openai/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-client-key" \
   -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Hello"}]}'
 
 # 调用 Claude 模型（需配置 Anthropic 供应商）
-curl -X POST http://localhost:8000/v1/chat/completions \
+curl -X POST http://localhost:8000/api/anthropic/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-client-key" \
   -d '{"model":"claude-sonnet-4-6","messages":[{"role":"user","content":"Hello"}]}'

@@ -69,14 +69,14 @@ with engine.connect() as _conn:
             if not _column_exists(_conn, table_name, column_name):
                 _conn.execute(text(_sql))
         except Exception:
-            pass
+            logger.exception("migration failed for %s.%s with SQL: %s", table_name, column_name, _sql)
     # PostgreSQL only：修改列约束
     if "sqlite" not in str(engine.url):
         for _sql in _constraint_migrations:
             try:
                 _conn.execute(text(_sql))
             except Exception:
-                pass
+                logger.exception("constraint migration failed with SQL: %s", _sql)
     _conn.commit()
 
 

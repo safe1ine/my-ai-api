@@ -96,6 +96,8 @@ def _upstream_url(vendor: str, provider: Provider, path: str) -> str:
     base = ((provider.base_url or OPENAI_BASE_URL) if vendor == "openai"
             else (provider.base_url or ANTHROPIC_BASE_URL)).rstrip("/")
     clean = path.lstrip("/")
+    if base.endswith("/v1"):
+        return f"{base}/{clean.removeprefix('v1/').lstrip('/')}"
     # 如果客户端已带 v1/（如 Anthropic SDK 默认行为），不再重复
     if clean.startswith("v1/") or clean == "v1":
         return f"{base}/{clean}"

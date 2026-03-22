@@ -1,4 +1,5 @@
-import React, { useState, ReactNode } from 'react'
+import React, { useEffect, useState, ReactNode } from 'react'
+import { keysApi, KeyOut } from '../api'
 
 const BASE_URL = window.location.origin
 
@@ -390,17 +391,39 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
 const OPENAI_MODELS = ['gpt-4o', 'gpt-4o-mini', 'o1', 'o3-mini']
 const ANTHROPIC_MODELS = ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001']
 
+function maskKey(key: string) {
+  if (key.length <= 12) return key
+  return `${key.slice(0, 8)}...${key.slice(-4)}`
+}
+
 export default function DocsPage() {
   const [user, setUser] = useState('你好')
   const [system, setSystem] = useState('')
   const [showSystem, setShowSystem] = useState(false)
   const [stream, setStream] = useState(false)
   const [apiKey, setApiKey] = useState('')
+  const [keys, setKeys] = useState<KeyOut[]>([])
+  const [selectedKeyId, setSelectedKeyId] = useState<string>('')
   const [openaiModel, setOpenaiModel] = useState(OPENAI_MODELS[0])
   const [openaiFormat, setOpenaiFormat] = useState<OpenAiFormat>('responses')
   const [anthropicModel, setAnthropicModel] = useState(ANTHROPIC_MODELS[0])
+  const [openaiSending, setOpenaiSending] = useState(false)
+  const [anthropicSending, setAnthropicSending] = useState(false)
+  const [openaiResponse, setOpenaiResponse] = useState<string>('')
+  const [anthropicResponse, setAnthropicResponse] = useState<string>('')
 
   const params: Params = { system, user, stream, apiKey }
+
+  useEffect(() => {
+    keysApi.list().then(list => {
+      setKeys(list)
+      const firstActive = list.find(k => k.is_active)
+      if (firstActive) {
+        setSelectedKeyId(String(firstActive.id))
+        setApiKey(firstActive.key)
+      }
+    }).catch(() => {})
+  }, [])
 
   const urlStyle: React.CSSProperties = {
     fontFamily: 'monospace', fontSize: 13, background: '#f3f4f6',
@@ -417,6 +440,44 @@ export default function DocsPage() {
   const labelStyle: React.CSSProperties = {
     fontSize: 12, fontWeight: 600, color: '#6b7280',
     textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, display: 'block',
+  }
+
+  const runRequest = async (url: string, body: Record<string, unknown>, setter: (value: string) => void, setLoading: (value: boolean) => void) => {
+    if (!apiKey.trim()) {
+      setter('请先选择或填写 API Token')
+      return
+    }
+    setLoading(true)
+    setter('')
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey.trim()}`,
+        },
+        body: JSON.stringify(body),
+      })
+      const text = await resp.text()
+      setter(`HTTP ${resp.status}\n\n${text}`)
+    } catch (err) {
+      setter(`请求失败\n\n${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const sendOpenAiRequest = async () => {
+    const endpoint = openaiFormat === 'responses' ? 'responses' : 'chat/completions'
+    const body = openaiFormat === 'responses'
+      ? buildOpenAiResponsesBody(params, openaiModel)
+      : buildOpenAiChatBody(params, openaiModel)
+    await runRequest(`${BASE_URL}/api/openai/${endpoint}`, body, setOpenaiResponse, setOpenaiSending)
+  }
+
+  const sendAnthropicRequest = async () => {
+    const body = buildAnthropicBody(params, anthropicModel)
+    await runRequest(`${BASE_URL}/api/anthropic/messages`, body, setAnthropicResponse, setAnthropicSending)
   }
 
   return (
@@ -499,12 +560,35 @@ export default function DocsPage() {
             <div style={{ paddingBottom: 2 }}>
               <Toggle value={stream} onChange={setStream} label={stream ? '流式输出（Stream）' : '非流式输出'} />
             </div>
+            <div style={{ minWidth: 260, flex: 1 }}>
+              <label style={labelStyle}>API Token（从已创建列表中选择）</label>
+              <select
+                style={{ ...inputStyle, resize: 'none' }}
+                value={selectedKeyId}
+                onChange={e => {
+                  const value = e.target.value
+                  setSelectedKeyId(value)
+                  const selected = keys.find(k => String(k.id) === value)
+                  if (selected) setApiKey(selected.key)
+                }}
+              >
+                <option value="">手动输入</option>
+                {keys.map(k => (
+                  <option key={k.id} value={String(k.id)}>
+                    {k.name} {k.is_active ? '' : '(已禁用)'} [{maskKey(k.key)}]
+                  </option>
+                ))}
+              </select>
+            </div>
             <div style={{ flex: 1, minWidth: 200 }}>
               <label style={labelStyle}>API Key（填入后自动替换示例中的占位符）</label>
               <input
                 style={{ ...inputStyle, resize: 'none', fontFamily: 'monospace' }}
                 value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
+                onChange={e => {
+                  setSelectedKeyId('')
+                  setApiKey(e.target.value)
+                }}
                 placeholder="sk-..."
                 type="password"
               />
@@ -581,6 +665,21 @@ export default function DocsPage() {
           { label: 'Python', icon: 'bi-filetype-py', content: <CodeBlock code={genOpenAiPython(params, openaiModel, openaiFormat)} /> },
           { label: 'JavaScript', icon: 'bi-filetype-js', content: <CodeBlock code={genOpenAiJs(params, openaiModel, openaiFormat)} /> },
         ]} />
+        <div style={{ marginTop: 14, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 14px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>在线请求测试</span>
+            <button
+              onClick={sendOpenAiRequest}
+              disabled={openaiSending}
+              style={{ border: 'none', borderRadius: 8, padding: '7px 12px', background: openaiSending ? '#bfdbfe' : '#1a73e8', color: '#fff', fontSize: 13, cursor: openaiSending ? 'not-allowed' : 'pointer' }}
+            >
+              {openaiSending ? '请求中...' : '发送请求'}
+            </button>
+          </div>
+          <pre style={{ margin: 0, padding: '14px 16px', minHeight: 120, background: '#0f172a', color: '#e2e8f0', fontSize: 12, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {openaiResponse || '点击“发送请求”后，这里会显示原始返回结果。'}
+          </pre>
+        </div>
       </div>
 
       {/* ── Anthropic ── */}
@@ -629,6 +728,21 @@ export default function DocsPage() {
           { label: 'Python', icon: 'bi-filetype-py', content: <CodeBlock code={genAnthropicPython(params, anthropicModel)} /> },
           { label: 'JavaScript', icon: 'bi-filetype-js', content: <CodeBlock code={genAnthropicJs(params, anthropicModel)} /> },
         ]} />
+        <div style={{ marginTop: 14, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 14px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>在线请求测试</span>
+            <button
+              onClick={sendAnthropicRequest}
+              disabled={anthropicSending}
+              style={{ border: 'none', borderRadius: 8, padding: '7px 12px', background: anthropicSending ? '#fde68a' : '#d97706', color: '#fff', fontSize: 13, cursor: anthropicSending ? 'not-allowed' : 'pointer' }}
+            >
+              {anthropicSending ? '请求中...' : '发送请求'}
+            </button>
+          </div>
+          <pre style={{ margin: 0, padding: '14px 16px', minHeight: 120, background: '#0f172a', color: '#e2e8f0', fontSize: 12, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {anthropicResponse || '点击“发送请求”后，这里会显示原始返回结果。'}
+          </pre>
+        </div>
       </div>
     </div>
   )

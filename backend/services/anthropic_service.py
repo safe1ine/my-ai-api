@@ -156,7 +156,7 @@ async def _check_stream_response(
 
 
 async def test_connection(api_key: str, base_url: str | None, proxy_url: str | None = None) -> tuple[bool, str | None, int]:
-    """测试 Anthropic API 连通性，先流式探活，失败后回退非流式"""
+    """测试 Anthropic API 连通性，先非流式探活，失败后回退流式"""
     url = _build_url(base_url, "/v1/messages?beta=true")
     payload = {
         "model": "claude-haiku-4-5-20251001",
@@ -167,20 +167,23 @@ async def test_connection(api_key: str, base_url: str | None, proxy_url: str | N
     try:
         async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
             headers = _build_health_check_headers(api_key)
+            resp = await client.post(url, json=payload, headers=headers)
+            latency_ms = int((time.monotonic() - start) * 1000)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("content"):
+                    return True, None, latency_ms
+                non_stream_error = "响应中没有 content 字段"
+            else:
+                non_stream_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+
             stream_ok, stream_error = await _check_stream_response(client, url, headers, payload)
             latency_ms = int((time.monotonic() - start) * 1000)
             if stream_ok:
                 return True, None, latency_ms
-            resp = await client.post(url, json=payload, headers=headers)
-            latency_ms = int((time.monotonic() - start) * 1000)
-            if resp.status_code != 200:
-                suffix = f"; stream={stream_error}" if stream_error else ""
-                return False, f"HTTP {resp.status_code}: {resp.text[:200]}{suffix}", latency_ms
-            data = resp.json()
-            if not data.get("content"):
-                suffix = f"; stream={stream_error}" if stream_error else ""
-                return False, f"响应中没有 content 字段{suffix}", latency_ms
-            return True, None, latency_ms
+
+            suffix = f"; stream={stream_error}" if stream_error else ""
+            return False, f"{non_stream_error}{suffix}", latency_ms
     except Exception as e:
         latency_ms = int((time.monotonic() - start) * 1000)
         return False, str(e), latency_ms

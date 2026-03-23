@@ -29,9 +29,9 @@ function fmtTick(iso: string, granularity: 'day' | 'week' | 'month') {
 
 // 每隔多少个数据点显示一个刻度
 const TICK_INTERVAL: Record<string, number> = {
-  day: 11,   // 5min × 12 = 1h，显示 ~24 个刻度
-  week: 47,  // 30min × 48 = 24h，显示 ~7 个刻度
-  month: 11, // 2h × 12 = 24h，显示 ~30 个刻度
+  day: 3,   // 15min × 4 = 1h，显示 ~24 个刻度
+  week: 23, // 1h × 24 = 1天，显示 ~7 个刻度
+  month: 3, // 6h × 4 = 1天，显示 ~30 个刻度
 }
 
 // ── Overview Card ─────────────────────────────────────────────────────────

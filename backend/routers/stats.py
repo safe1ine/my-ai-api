@@ -62,13 +62,13 @@ def get_usage(
     now = datetime.utcnow()
     if granularity == "day":
         start_dt = now - timedelta(hours=24)
-        bucket_minutes = 5
+        bucket_minutes = 15
     elif granularity == "week":
         start_dt = now - timedelta(days=7)
-        bucket_minutes = 30
+        bucket_minutes = 60
     else:
         start_dt = now - timedelta(days=30)
-        bucket_minutes = 120
+        bucket_minutes = 360
 
     bucket_expr = _get_bucket_expr(bucket_minutes)
 

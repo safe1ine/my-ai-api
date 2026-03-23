@@ -837,19 +837,19 @@ export default function ProvidersPage() {
                       {section.grouped && busy ? '处理中...' : (allActive ? '已启用' : '已禁用')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                      <span style={{ color: '#6b7280' }}>总计</span>
-                      <span style={{ color: '#2563eb', fontWeight: 600, minWidth: '3.5em', textAlign: 'right' }} title={`输入 ${groupTotalInput.toLocaleString()}`}>
+                      <span style={{ color: '#6b7280', display: 'inline-block', width: 28 }}>总计</span>
+                      <span style={{ color: '#2563eb', fontWeight: 600, display: 'inline-block', width: 52, textAlign: 'right' }} title={`输入 ${groupTotalInput.toLocaleString()}`}>
                         <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(groupTotalInput)}
                       </span>
-                      <span style={{ color: '#16a34a', fontWeight: 600, minWidth: '3.5em', textAlign: 'right' }} title={`输出 ${groupTotalOutput.toLocaleString()}`}>
+                      <span style={{ color: '#16a34a', fontWeight: 600, display: 'inline-block', width: 52, textAlign: 'right' }} title={`输出 ${groupTotalOutput.toLocaleString()}`}>
                         <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(groupTotalOutput)}
                       </span>
                       <span style={{ color: '#d1d5db', margin: '0 2px' }}>|</span>
-                      <span style={{ color: '#9ca3af' }}>今日</span>
-                      <span style={{ color: '#2563eb', fontWeight: 600, minWidth: '3.5em', textAlign: 'right' }} title={`输入 ${groupTodayInput.toLocaleString()}`}>
+                      <span style={{ color: '#9ca3af', display: 'inline-block', width: 28 }}>今日</span>
+                      <span style={{ color: '#2563eb', fontWeight: 600, display: 'inline-block', width: 52, textAlign: 'right' }} title={`输入 ${groupTodayInput.toLocaleString()}`}>
                         <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(groupTodayInput)}
                       </span>
-                      <span style={{ color: '#16a34a', fontWeight: 600, minWidth: '3.5em', textAlign: 'right' }} title={`输出 ${groupTodayOutput.toLocaleString()}`}>
+                      <span style={{ color: '#16a34a', fontWeight: 600, display: 'inline-block', width: 52, textAlign: 'right' }} title={`输出 ${groupTodayOutput.toLocaleString()}`}>
                         <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(groupTodayOutput)}
                       </span>
                     </div>

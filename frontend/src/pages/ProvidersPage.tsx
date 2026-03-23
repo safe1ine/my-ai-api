@@ -854,7 +854,7 @@ export default function ProvidersPage() {
                       </span>
                     </div>
                   </div>
-                  <span style={{ fontSize: 12, color: '#9ca3af' }}>{groupProviders.length} 个上游</span>
+                  <span style={{ fontSize: 12, color: '#9ca3af', display: 'inline-block', width: 52, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{groupProviders.length} 个上游</span>
                 </div>
               </div>
               {!collapsed && (

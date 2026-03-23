@@ -23,6 +23,13 @@ def _build_headers(api_key: str) -> dict:
     }
 
 
+def _build_health_check_headers(api_key: str) -> dict:
+    headers = _build_headers(api_key)
+    # 该上游要求以 Claude CLI 的请求形态访问 beta 消息接口。
+    headers["User-Agent"] = "claude-cli/2.1.81 (external, cli)"
+    return headers
+
+
 async def call_messages(
     api_key: str,
     base_url: str | None,
@@ -150,7 +157,7 @@ async def _check_stream_response(
 
 async def test_connection(api_key: str, base_url: str | None, proxy_url: str | None = None) -> tuple[bool, str | None, int]:
     """测试 Anthropic API 连通性，先流式探活，失败后回退非流式"""
-    url = _build_url(base_url, "/v1/messages")
+    url = _build_url(base_url, "/v1/messages?beta=true")
     payload = {
         "model": "claude-haiku-4-5-20251001",
         "messages": [{"role": "user", "content": "hi"}],
@@ -159,11 +166,12 @@ async def test_connection(api_key: str, base_url: str | None, proxy_url: str | N
     start = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=15, proxy=proxy_url) as client:
-            stream_ok, stream_error = await _check_stream_response(client, url, _build_headers(api_key), payload)
+            headers = _build_health_check_headers(api_key)
+            stream_ok, stream_error = await _check_stream_response(client, url, headers, payload)
             latency_ms = int((time.monotonic() - start) * 1000)
             if stream_ok:
                 return True, None, latency_ms
-            resp = await client.post(url, json=payload, headers=_build_headers(api_key))
+            resp = await client.post(url, json=payload, headers=headers)
             latency_ms = int((time.monotonic() - start) * 1000)
             if resp.status_code != 200:
                 suffix = f"; stream={stream_error}" if stream_error else ""

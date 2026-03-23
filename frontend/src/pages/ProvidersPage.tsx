@@ -10,6 +10,8 @@ type ColKey = 'priority' | 'name' | 'type' | 'apiKey' | 'baseUrl' | 'proxy' | 'h
 
 interface ColDef { key: ColKey; label: string; defaultOn: boolean }
 
+type ProviderTypeTab = 'openai' | 'anthropic'
+
 const COL_DEFS: ColDef[] = [
   { key: 'priority',  label: '优先级', defaultOn: true  },
   { key: 'name',      label: '名称',   defaultOn: true  },
@@ -202,6 +204,7 @@ export default function ProvidersPage() {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
   const [groupSavingKey, setGroupSavingKey] = useState<string | null>(null)
   const [priorityDialog, setPriorityDialog] = useState<{ key: string; providers: ProviderOut[]; value: number } | null>(null)
+  const [activeTypeTab, setActiveTypeTab] = useState<ProviderTypeTab>('openai')
   const modalRef = useRef<HTMLDivElement>(null)
 
   const show = (k: ColKey) => visibleCols.has(k)
@@ -221,6 +224,13 @@ export default function ProvidersPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    const hasOpenAI = providers.some(p => p.type === 'openai')
+    const hasAnthropic = providers.some(p => p.type === 'anthropic')
+    if (activeTypeTab === 'openai' && !hasOpenAI && hasAnthropic) setActiveTypeTab('anthropic')
+    if (activeTypeTab === 'anthropic' && !hasAnthropic && hasOpenAI) setActiveTypeTab('openai')
+  }, [activeTypeTab, providers])
 
   const showToast = (msg: string, type: 'success' | 'danger' | 'info' = 'success') => {
     setToast({ msg, type })
@@ -500,6 +510,11 @@ export default function ProvidersPage() {
     info: { bg: '#dbeafe', border: '#93c5fd', color: '#1e40af', icon: 'bi-info-circle-fill' },
   }
 
+  const typeCounts = {
+    openai: providers.filter(p => p.type === 'openai').length,
+    anthropic: providers.filter(p => p.type === 'anthropic').length,
+  }
+
   const renderProviderRow = (p: ProviderOut) => (
     <tr key={p.id} style={{ borderTop: '1px solid #f3f4f6' }}>
       {show('priority') && (
@@ -737,9 +752,10 @@ export default function ProvidersPage() {
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {sections.map((section, index) => {
             const groupProviders = section.providers
+            const singleProvider = section.grouped ? null : groupProviders[0] ?? null
             const groupPriority = groupProviders[0]?.priority ?? 5
             const allActive = groupProviders.every(p => p.is_active)
-            const collapsed = section.grouped ? !expandedGroups[section.key] : false
+            const collapsed = !expandedGroups[section.key]
             const busy = groupSavingKey === section.key
             const groupTotalInput = groupProviders.reduce((sum, p) => sum + (tokenStats[p.id]?.total_input_tokens ?? 0), 0)
             const groupTotalOutput = groupProviders.reduce((sum, p) => sum + (tokenStats[p.id]?.total_output_tokens ?? 0), 0)
@@ -756,7 +772,7 @@ export default function ProvidersPage() {
                 justifyContent: 'space-between',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {section.grouped && (
+                  {section.grouped ? (
                     <div
                       onClick={() => !busy && openGroupPriorityDialog(section.key, groupProviders, groupPriority)}
                       title={busy ? '处理中...' : '点击修改分组优先级'}
@@ -773,73 +789,91 @@ export default function ProvidersPage() {
                         {groupPriority}
                       </span>
                     </div>
+                  ) : (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 26, height: 26, borderRadius: 8,
+                      background: '#f8f9fa', color: '#3c4043',
+                      fontSize: 13, fontWeight: 700,
+                      border: '1px solid #e5e7eb',
+                    }}>
+                      {groupPriority}
+                    </span>
                   )}
-                  {section.grouped && (
-                    <button
-                      onClick={() => toggleGroupExpanded(section.key)}
-                      style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: '#6b7280', lineHeight: 1 }}
-                    >
-                      <i className={`bi ${collapsed ? 'bi-chevron-right' : 'bi-chevron-down'}`} style={{ fontSize: 12 }} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => toggleGroupExpanded(section.key)}
+                    style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', color: '#6b7280', lineHeight: 1 }}
+                  >
+                    <i className={`bi ${collapsed ? 'bi-chevron-right' : 'bi-chevron-down'}`} style={{ fontSize: 12 }} />
+                  </button>
                   <i className={`bi ${section.grouped ? 'bi-collection' : 'bi-box'}`} style={{ color: '#6b7280', fontSize: 13 }} />
                   <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{section.title}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {section.grouped && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                      <div
-                        onClick={() => !busy && handleGroupToggle(section.key, groupProviders)}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 6,
-                          padding: '3px 10px', borderRadius: 999,
-                          background: allActive ? '#dcfce7' : '#f3f4f6',
-                          color: allActive ? '#16a34a' : '#6b7280',
-                          fontWeight: 600,
-                          cursor: busy ? 'not-allowed' : 'pointer',
-                        }}
-                        title={busy ? '处理中...' : (allActive ? '点击禁用整组' : '点击启用整组')}
-                      >
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: allActive ? '#22c55e' : '#d1d5db' }} />
-                        {busy ? '处理中...' : (allActive ? '已启用' : '已禁用')}
-                      </div>
-                      <div style={{ color: '#6b7280' }}>
-                        总计
-                        <span style={{ color: '#2563eb', fontWeight: 600, marginLeft: 6 }} title={`输入 ${groupTotalInput.toLocaleString()}`}>
-                          <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(groupTotalInput)}
-                        </span>
-                        <span style={{ color: '#16a34a', fontWeight: 600, marginLeft: 6 }} title={`输出 ${groupTotalOutput.toLocaleString()}`}>
-                          <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(groupTotalOutput)}
-                        </span>
-                      </div>
-                      <div style={{ color: '#9ca3af' }}>
-                        今日
-                        <span style={{ color: '#2563eb', fontWeight: 600, marginLeft: 6 }} title={`输入 ${groupTodayInput.toLocaleString()}`}>
-                          <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(groupTodayInput)}
-                        </span>
-                        <span style={{ color: '#16a34a', fontWeight: 600, marginLeft: 6 }} title={`输出 ${groupTodayOutput.toLocaleString()}`}>
-                          <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(groupTodayOutput)}
-                        </span>
-                      </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                    <div
+                      onClick={() => {
+                        if (section.grouped) {
+                          if (!busy) handleGroupToggle(section.key, groupProviders)
+                        } else if (singleProvider) {
+                          handleToggle(singleProvider)
+                        }
+                      }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '3px 10px', borderRadius: 999,
+                        background: allActive ? '#dcfce7' : '#f3f4f6',
+                        color: allActive ? '#16a34a' : '#6b7280',
+                        fontWeight: 600,
+                        cursor: section.grouped && busy ? 'not-allowed' : 'pointer',
+                      }}
+                      title={
+                        section.grouped
+                          ? (busy ? '处理中...' : (allActive ? '点击禁用整组' : '点击启用整组'))
+                          : (allActive ? '点击禁用' : '点击启用')
+                      }
+                    >
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: allActive ? '#22c55e' : '#d1d5db' }} />
+                      {section.grouped && busy ? '处理中...' : (allActive ? '已启用' : '已禁用')}
                     </div>
-                  )}
+                    <div style={{ color: '#6b7280' }}>
+                      总计
+                      <span style={{ color: '#2563eb', fontWeight: 600, marginLeft: 6 }} title={`输入 ${groupTotalInput.toLocaleString()}`}>
+                        <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(groupTotalInput)}
+                      </span>
+                      <span style={{ color: '#16a34a', fontWeight: 600, marginLeft: 6 }} title={`输出 ${groupTotalOutput.toLocaleString()}`}>
+                        <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(groupTotalOutput)}
+                      </span>
+                    </div>
+                    <div style={{ color: '#9ca3af' }}>
+                      今日
+                      <span style={{ color: '#2563eb', fontWeight: 600, marginLeft: 6 }} title={`输入 ${groupTodayInput.toLocaleString()}`}>
+                        <i className="bi bi-arrow-up-short" style={{ fontSize: 11 }} />{fmtTokens(groupTodayInput)}
+                      </span>
+                      <span style={{ color: '#16a34a', fontWeight: 600, marginLeft: 6 }} title={`输出 ${groupTodayOutput.toLocaleString()}`}>
+                        <i className="bi bi-arrow-down-short" style={{ fontSize: 11 }} />{fmtTokens(groupTodayOutput)}
+                      </span>
+                    </div>
+                  </div>
                   <span style={{ fontSize: 12, color: '#9ca3af' }}>{groupProviders.length} 个上游</span>
                 </div>
               </div>
               {!collapsed && (
-              <table className="table table-hover mb-0 align-middle">
-                <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
-                  <tr>
-                    {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
-                      <th key={c.key} style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>{c.label}</th>
-                    ))}
-                    <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groupProviders.map(renderProviderRow)}
-                </tbody>
-              </table>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table table-hover mb-0 align-middle" style={{ minWidth: 860 }}>
+                  <thead style={{ background: '#f8f9fa', borderBottom: '1px solid #e8eaed' }}>
+                    <tr>
+                      {COL_DEFS.filter(c => visibleCols.has(c.key) && c.key !== 'type').map(c => (
+                        <th key={c.key} style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>{c.label}</th>
+                      ))}
+                      <th style={{ padding: '12px 20px', fontWeight: 500, fontSize: 13, color: '#5f6368', border: 0 }}>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupProviders.map(renderProviderRow)}
+                  </tbody>
+                </table>
+              </div>
               )}
             </div>
           )})}
@@ -869,23 +903,80 @@ export default function ProvidersPage() {
       })()}
 
       {/* Header */}
-      <div className="d-flex align-items-center justify-content-between mb-4">
-        <div>
-          <h4 style={{ fontSize: 22, fontWeight: 400, color: '#202124', margin: 0 }}>Upstream</h4>
-          <p style={{ fontSize: 14, color: '#5f6368', margin: '4px 0 0' }}>配置 OpenAI / Anthropic 等上游 API 供应商</p>
-        </div>
-        <div className="d-flex align-items-center gap-2">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+        <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+          <div>
+            <h4 style={{ fontSize: 22, fontWeight: 400, color: '#202124', margin: 0 }}>Upstream</h4>
+            <p style={{ fontSize: 14, color: '#5f6368', margin: '4px 0 0' }}>按供应商类型分标签查看和管理上游配置</p>
+          </div>
           <span className="badge rounded-pill" style={{ background: '#eff6ff', color: '#3b82f6', fontSize: 13, padding: '6px 14px' }}>
-            {providers.length} 个上游
+            共 {providers.length} 个上游
           </span>
-          <ColPicker visible={visibleCols} onChange={updateCols} />
-          <button
-            className="btn"
-            style={{ background: '#1a73e8', color: '#fff', borderRadius: 8, fontSize: 14, padding: '7px 16px', border: 'none' }}
-            onClick={openCreate}
-          >
-            <i className="bi bi-plus-lg me-1" />新增
-          </button>
+        </div>
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e8eaed',
+          borderRadius: 12,
+          padding: 12,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {(['openai', 'anthropic'] as const).map(type => {
+              const tc = TYPE_CONFIG[type]
+              const active = activeTypeTab === type
+              return (
+                <button
+                  key={type}
+                  onClick={() => setActiveTypeTab(type)}
+                  style={{
+                    border: `1px solid ${active ? `${tc.color}55` : '#e5e7eb'}`,
+                    background: active ? tc.bg : '#fff',
+                    color: active ? tc.color : '#4b5563',
+                    borderRadius: 999,
+                    padding: '8px 14px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <i className={`bi ${tc.icon}`} style={{ fontSize: 13 }} />
+                  {tc.label}
+                  <span style={{
+                    minWidth: 22,
+                    height: 22,
+                    borderRadius: 999,
+                    padding: '0 7px',
+                    background: active ? '#fff' : '#f3f4f6',
+                    color: active ? tc.color : '#6b7280',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}>
+                    {typeCounts[type]}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <ColPicker visible={visibleCols} onChange={updateCols} />
+            <button
+              className="btn"
+              style={{ background: '#1a73e8', color: '#fff', borderRadius: 8, fontSize: 14, padding: '7px 16px', border: 'none' }}
+              onClick={openCreate}
+            >
+              <i className="bi bi-plus-lg me-1" />新增
+            </button>
+          </div>
         </div>
       </div>
 
@@ -911,10 +1002,13 @@ export default function ProvidersPage() {
             </button>
           </div>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {renderTypeSection('openai')}
-          {renderTypeSection('anthropic')}
+      ) : renderTypeSection(activeTypeTab) ?? (
+        <div style={{ border: '1px solid #e8eaed', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+          <div className="text-center p-5">
+            <i className={`bi ${TYPE_CONFIG[activeTypeTab].icon}`} style={{ fontSize: 36, color: '#d1d5db', display: 'block', marginBottom: 12 }} />
+            <div style={{ fontSize: 15, color: '#374151', fontWeight: 600, marginBottom: 6 }}>{TYPE_CONFIG[activeTypeTab].label} 暂无上游</div>
+            <div className="text-muted" style={{ fontSize: 14 }}>当前标签下还没有配置，点击右上角新增即可创建。</div>
+          </div>
         </div>
       )}
 
